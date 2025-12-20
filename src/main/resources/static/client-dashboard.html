@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xmile - דשבורד לקוח עסקי</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="client-dashboard-style.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="dashboard-header">
+        <div class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <button class="btn-back" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i>
+                        התנתק
+                    </button>
+                    <div class="user-profile">
+                        <div class="user-avatar">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name" id="userName">לקוח עסקי</div>
+                            <div class="user-role">לקוח עסקי</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="header-center">
+                    <div class="logo-section">
+                        <span class="logo-text">Xmile</span>
+                        <span class="logo-tagline">בית של פתרונות רישום</span>
+                    </div>
+                </div>
+                
+                <div class="header-right">
+                    <button class="btn-notification">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge" id="notificationCount">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="dashboard-main">
+        <div class="container-fluid">
+            <!-- Welcome Section -->
+            <div class="welcome-section mb-4">
+                <h1 class="welcome-title">
+                    <span class="wave">👋</span> ברוך הבא
+                </h1>
+                <p class="welcome-subtitle">ניהול האירועים וההזמנות שלך</p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons mb-5">
+                <button type="button" class="btn-action btn-primary-action" id="quoteBtn">
+                    <i class="fas fa-calculator"></i>
+                    בדיקת הצעת מחיר לאירוע
+                </button>
+                <button type="button" class="btn-action btn-secondary-action" id="messageBtn">
+                    <i class="fas fa-envelope"></i>
+                    שליחת הודעה למשתתפים
+                </button>
+            </div>
+
+            <!-- Events History Section -->
+            <div class="events-history-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-history"></i>
+                        היסטוריית האירועים שלי
+                    </h2>
+                    <div class="filter-buttons">
+                        <button class="filter-btn active" onclick="filterEvents('all')">הכל</button>
+                        <button class="filter-btn" onclick="filterEvents('pending')">ממתינים לאישור</button>
+                        <button class="filter-btn" onclick="filterEvents('approved')">מאושרים</button>
+                        <button class="filter-btn" onclick="filterEvents('completed')">הושלמו</button>
+                    </div>
+                </div>
+
+                <div class="events-list" id="eventsList">
+                    <div class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>טוען אירועים...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Quote Request Modal -->
+    <div class="modal fade" id="quoteModal" tabindex="-1" aria-labelledby="quoteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quoteModalLabel">
+                        <i class="fas fa-calculator"></i>
+                        בדיקת הצעת מחיר לאירוע
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="quoteForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">שם האירוע *</label>
+                                <input type="text" class="form-control" id="eventName" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">מספר משתתפים *</label>
+                                <input type="number" class="form-control" id="participantCount" min="1" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">מיקום האירוע *</label>
+                                <input type="text" class="form-control" id="eventLocation" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">תאריך האירוע *</label>
+                                <input type="date" class="form-control" id="eventDate" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">שעת התחלה *</label>
+                                <input type="time" class="form-control" id="eventTime" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">חברת הפקה</label>
+                                <select class="form-control" id="productionCompany">
+                                    <option value="">החברה תציע שירות</option>
+                                    <option value="1">חברת הפקה 1</option>
+                                    <option value="2">חברת הפקה 2</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">הערות נוספות</label>
+                            <textarea class="form-control" id="eventNotes" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ביטול</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-calculator"></i>
+                                קבל הצעת מחיר
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quote Result Modal -->
+    <div class="modal fade" id="quoteResultModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-check-circle"></i>
+                        הצעת מחיר התקבלה
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="quote-summary" id="quoteSummary">
+                        <!-- Will be filled by JavaScript -->
+                    </div>
+                    
+                    <div class="quote-actions mt-4">
+                        <button class="btn btn-success w-100 mb-2" onclick="approveQuote()">
+                            <i class="fas fa-check"></i>
+                            מאשר את ההצעה
+                        </button>
+                        <button class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">
+                            חזור
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registration Representatives Modal -->
+    <div class="modal fade" id="representativesModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-users"></i>
+                        נציגי רישום נדרשים
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="representativesForm">
+                        <div class="mb-3">
+                            <label class="form-label">כמה נציגי רישום אתה צריך בקבלה ביום האירוע? *</label>
+                            <input type="number" class="form-control" id="representativesCount" min="1" required>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            הבקשה תישלח לחברה לאישור
+                        </div>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ביטול</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                                שלח לאישור
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Modal -->
+    <div class="modal fade" id="messageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-envelope"></i>
+                        שליחת הודעה למשתתפים
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="message-wizard">
+                        <!-- Step 1: Select Event -->
+                        <div class="wizard-step active" id="step1">
+                            <h6 class="step-title">בחר אירוע</h6>
+                            <select class="form-control mb-3" id="selectedEvent">
+                                <option value="">בחר אירוע...</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="nextStep(2)">הבא</button>
+                        </div>
+                        
+                        <!-- Step 2: Add Participants -->
+                        <div class="wizard-step" id="step2">
+                            <h6 class="step-title">הוסף משתתפים</h6>
+                            <div class="participants-input mb-3">
+                                <textarea class="form-control" id="participantsList" rows="5" 
+                                    placeholder="הזן שמות משתתפים (שורה אחת לכל משתתף)&#10;או: שם, טלפון, אימייל"></textarea>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <button class="btn btn-secondary" onclick="prevStep(1)">חזור</button>
+                                <button class="btn btn-primary" onclick="nextStep(3)">הבא</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 3: AI Message Generation -->
+                        <div class="wizard-step" id="step3">
+                            <h6 class="step-title">
+                                <i class="fas fa-magic"></i>
+                                צור הודעה עם AI
+                            </h6>
+                            <div class="ai-message-section">
+                                <div class="mb-3">
+                                    <label class="form-label">תאר מה אתה רוצה לשלוח:</label>
+                                    <textarea class="form-control" id="aiMessageRequest" rows="3" 
+                                        placeholder="לדוגמה: הודעה מקצועית לאירוע עסקי, כוללת פרטי האירוע, מיקום, תאריך ושעה"></textarea>
+                                </div>
+                                <button class="btn btn-primary w-100 mb-4" onclick="generateAIMessages()">
+                                    <i class="fas fa-magic"></i>
+                                    צור 3 הצעות תוכן
+                                </button>
+                                
+                                <div id="contentOptions" class="content-options" style="display: none;">
+                                    <h6>בחר תוכן:</h6>
+                                    <div class="options-grid" id="contentOptionsGrid"></div>
+                                </div>
+                                
+                                <div id="designOptions" class="design-options mt-4" style="display: none;">
+                                    <h6>בחר עיצוב:</h6>
+                                    <div class="options-grid" id="designOptionsGrid"></div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between mt-4">
+                                <button class="btn btn-secondary" onclick="prevStep(2)">חזור</button>
+                                <button class="btn btn-primary" onclick="nextStep(4)" id="continueToSend" style="display: none;">
+                                    המשך לשליחה
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 4: Send Message -->
+                        <div class="wizard-step" id="step4">
+                            <h6 class="step-title">שליחת הודעה</h6>
+                            <div class="message-preview mb-3">
+                                <div class="preview-card" id="messagePreview"></div>
+                            </div>
+                            <div class="send-options">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="sendEmail" checked>
+                                    <label class="form-check-label" for="sendEmail">
+                                        <i class="fas fa-envelope"></i>
+                                        שלח במייל
+                                    </label>
+                                </div>
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="sendSMS" checked>
+                                    <label class="form-check-label" for="sendSMS">
+                                        <i class="fas fa-sms"></i>
+                                        שלח ב-SMS
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <button class="btn btn-secondary" onclick="prevStep(3)">חזור</button>
+                                <button class="btn btn-success" onclick="sendMessages()">
+                                    <i class="fas fa-paper-plane"></i>
+                                    שלח הודעות
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/client-dashboard.js"></script>
+</body>
+</html>
+

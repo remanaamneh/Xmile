@@ -1,0 +1,194 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=Poppins:wght@300;400;600&display=swap');
+/* Color Palette */
+:root {
+    --primary-orange: #FF5733; /* Dark Orange */
+    --dark-orange: #FF5733;
+    --secondary-white: #f8f9fa; 
+    --text-dark: #343a40; 
+    --header-bg: #495057; 
+}
+
+/* -------------------------------------- */
+/* 1. BACKGROUND IMAGE & CENTERING STYLES */
+/* -------------------------------------- */
+
+body {
+    /* Set up background image */
+    background-image: url('partner-ui/bg1.webp'); /* Assumes your image is named 'bg.jpg' and is outside the css folder */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed; /* Optional: fixes the background image when scrolling */
+    min-height: 100vh; /* Ensure body takes full viewport height */
+    margin: 0;
+    padding: 0;
+}
+body { font-family: 'Poppins', sans-serif; }
+h1, h2, h3, .navbar-brand { font-family: 'Playfair Display', serif; font-weight: 700; }
+
+.bg-dark-orange { background-color: var(--dark-orange) !important; }
+.text-orange { color: var(--dark-orange); }
+
+/* Navbar Button Styling */
+.nav-btn {
+    background: transparent;
+    color: white;
+    border: 2px solid white;
+    padding: 8px 20px;
+    border-radius: 50px; /* Rounded artistic shape */
+    font-family: 'Poppins', sans-serif;
+    font-weight: 500;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s ease-in-out;
+    cursor: pointer;
+    white-space: nowrap; /* Prevents text wrapping */
+}
+
+.navbar-brand {
+    font-size: 2.2rem !important; /* Increased size */
+    font-weight: 700;
+    letter-spacing: 1px;
+    transition: transform 0.3s ease;
+    color: white !important;
+}
+
+/* Uniform Hover Effect */
+.nav-btn:hover {
+    background-color: white; /* Button turns white */
+    color: #e67e22; /* Text turns your theme orange */
+    border-color: white;
+    transform: translateY(-2px); /* Subtle lift effect */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Ensure the navbar links are aligned */
+.navbar-nav .nav-item {
+    display: flex;
+    align-items: center;
+}
+.background-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black overlay for readability */
+    z-index: 1;
+}
+
+.hero-section {
+    position: relative;
+    z-index: 2; /* Keep content above the overlay */
+    height: 100vh;
+}
+
+.h3 {
+    color: #f8f9fa;
+}
+.text-shadow {
+    /* Improves readability over the background image */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* -------------------------------------- */
+/* 2. THEME & HOVER STYLES (Existing + New Hover) */
+/* -------------------------------------- */
+
+/* Primary Button Styling (For Save/Add in Dashboard) */
+.btn-primary {
+    background-color: var(--primary-orange);
+    border-color: var(--primary-orange);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #CC4400; 
+    border-color: #CC4400;
+}
+
+/* Outline Button Styling (For Login/Register) */
+.btn-outline-light-orange {
+    color: var(--primary-orange);
+    border-color: var(--primary-orange);
+    background-color: transparent;
+    transition: all 0.3s ease; /* Smooth hover transition */
+}
+
+/* --- ORANGE HOVER EFFECT --- */
+.btn-outline-light-orange:hover {
+    color: white; /* Text becomes white */
+    background-color: var(--primary-orange); /* Background fills with orange */
+    border-color: var(--primary-orange); 
+}
+/* Service Boxes */
+.service-box {
+    padding: 40px;
+    border-radius: 15px;
+    transition: transform 0.3s;
+    background: white;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+.service-box:hover { transform: translateY(-10px); }
+
+/* Testimonials */
+#testimonialCarousel {
+    background: #fdf2e9;
+    padding: 60px 0;
+}
+/* Modal Header Styling for theme consistency */
+.modal-header.custom-modal-header {
+    background-color: var(--primary-orange);
+    color: white;
+}
+.modal-header.custom-modal-header .btn-close {
+    filter: invert(1); /* Makes the close button white */
+}
+
+/* Dashboard Styles */
+.custom-header {
+    background-color: var(--primary-orange);
+    color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.custom-header h1 {
+    color: white;
+    margin: 0;
+}
+
+.table-responsive {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.badge {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+}
+
+.btn-sm {
+    padding: 4px 12px;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 991px) {
+    .navbar-nav .nav-item {
+        margin-left: 0 !important; /* Reset side margin */
+        margin-top: 10px; /* Add space between stacked buttons */
+        width: 100%;
+    }
+    .nav-btn {
+        width: 100%; /* Make buttons full width on mobile */
+        text-align: center;
+    }
+}

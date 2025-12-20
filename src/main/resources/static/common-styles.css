@@ -1,0 +1,215 @@
+/* Common Styles for Xmile Platform */
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+    /* Xmile Brand Colors */
+    --primary-blue: #4285f4;
+    --primary-blue-dark: #1a73e8;
+    --primary-blue-light: #f0f7ff;
+    --background: #f5f7fa;
+    --background-light: #fafbfc;
+    --text-dark: #1a1a1a;
+    --text-gray: #666;
+    --text-light: #888;
+    --border-color: #e8ecf1;
+    --border-light: #e0e0e0;
+    --white: #ffffff;
+    --success: #34a853;
+    --success-dark: #2d8f47;
+    --warning: #fbbc04;
+    --error: #ea4335;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.1);
+    --shadow-lg: 0 10px 40px rgba(0,0,0,0.15);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Heebo', sans-serif;
+    background: var(--background);
+    color: var(--text-dark);
+    direction: rtl;
+}
+
+/* Common Button Styles */
+.btn {
+    padding: 14px 28px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.3s;
+    font-family: 'Heebo', sans-serif;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(66, 133, 244, 0.4);
+}
+
+.btn-secondary {
+    background: var(--background-light);
+    color: var(--text-gray);
+    border: 2px solid var(--border-light);
+}
+
+.btn-secondary:hover {
+    background: var(--border-color);
+    color: var(--text-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%);
+    color: white;
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 168, 83, 0.3);
+}
+
+/* Common Header Styles */
+.page-header {
+    background: var(--white);
+    padding: 20px 0;
+    box-shadow: var(--shadow-sm);
+    border-bottom: 3px solid var(--primary-blue);
+}
+
+.btn-back {
+    background: var(--background-light);
+    border: 2px solid var(--border-light);
+    color: var(--text-gray);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+}
+
+.btn-back:hover {
+    background: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+}
+
+.logo-text {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--primary-blue);
+    letter-spacing: 1px;
+}
+
+/* Common Card Styles */
+.card {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+    border-top: 4px solid var(--primary-blue);
+}
+
+/* Common Form Styles */
+.form-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 10px;
+    display: block;
+}
+
+.form-control {
+    padding: 14px 18px;
+    border: 2px solid var(--border-light);
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s;
+    background: var(--white);
+    font-family: 'Heebo', sans-serif;
+}
+
+.form-control:focus {
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 4px rgba(66, 133, 244, 0.1);
+    outline: none;
+}
+
+.form-text {
+    font-size: 12px;
+    margin-top: 6px;
+    color: var(--text-light);
+}
+
+/* Common Section Styles */
+.section-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--primary-blue);
+}
+
+.section-title i {
+    color: var(--primary-blue);
+    font-size: 24px;
+}
+
+/* Common Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    background: var(--white);
+    padding: 50px 60px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: var(--shadow-lg);
+}
+
+.loading-spinner i {
+    color: var(--primary-blue);
+    margin-bottom: 20px;
+}
+
+.loading-spinner p {
+    color: var(--text-gray);
+    font-size: 18px;
+    font-weight: 500;
+}
+

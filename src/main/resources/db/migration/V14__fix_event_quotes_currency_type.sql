@@ -1,0 +1,2 @@
+ALTER TABLE event_quotes
+  MODIFY COLUMN currency VARCHAR(3) NOT NULL;

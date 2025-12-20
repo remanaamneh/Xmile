@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+</head>
+<body>
+    <header class="custom-header py-3 mb-4">
+        <div class="container d-flex justify-content-between align-items-center">
+            <h1 class="h3 mb-0">Business Dashboard</h1>
+            <button class="btn btn-danger" id="logoutBtn" onclick="window.location.href='index.html'">Logout</button>
+        </div>
+    </header>
+
+    <main class="container">
+        <h2 class="h3 mb-4">Planned Events</h2>
+        <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#eventModal" onclick="clearForm()">
+            + Add New Event
+        </button>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Event Name</th>
+                        <th>Event Date</th>
+                        <th>Event Details</th> 
+                        <th>Contact Info</th>  
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="eventsTableBody">
+                    <tr><td colspan="6" class="text-center">Loading events...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="eventModalLabel">Add New Event</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="eventForm">
+              <input type="hidden" id="eventId">
+              <div class="row">
+                  <div class="col-md-6 mb-3">
+                      <label class="form-label">Event Name</label>
+                      <input type="text" class="form-control" id="eventName" required>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                      <label class="form-label">Event Date</label>
+                      <input type="date" class="form-control" id="eventScheduledDate" required>
+                  </div>
+              </div>
+              <div class="mb-3">
+                  <label class="form-label">Event Details/Description</label>
+                  <textarea class="form-control" id="eventDescription" rows="2"></textarea>
+              </div>
+              <hr>
+              <h6>Contact Information</h6>
+              <div class="mb-3">
+                  <input type="text" class="form-control mb-2" id="contactName" placeholder="Contact Name">
+                  <input type="email" class="form-control mb-2" id="contactEmail" placeholder="Contact Email">
+                  <input type="text" class="form-control" id="contactPhone" placeholder="Contact Phone Number">
+              </div>
+              <button type="submit" class="btn btn-primary w-100">Save Event</button>
+          </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

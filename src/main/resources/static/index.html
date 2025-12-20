@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Planner Hub</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="background-overlay"></div>
+    
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark-orange sticky-top">
+      <div class="container">
+          <a class="navbar-brand" href="#">EventHub</a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+              <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNav">
+              <ul class="navbar-nav ms-auto align-items-center">
+                  <li class="nav-item ms-3">
+                      <button class="nav-btn" data-bs-toggle="modal" data-bs-target="#reachUsModal">Reach Us</button>
+                  </li>
+                  <li class="nav-item ms-3">
+                      <button class="nav-btn" data-bs-toggle="modal" data-bs-target="#reviewModal">Leave a Review</button>
+                  </li>
+                  <li class="nav-item ms-3">
+                      <button class="nav-btn" data-bs-toggle="modal" data-bs-target="#loginModal">Login</button>
+                  </li>
+                  <li class="nav-item ms-3">
+                      <button class="nav-btn" data-bs-toggle="modal" data-bs-target="#registerModal">Join as a planner</button>
+                  </li>
+              </ul>
+          </div>
+      </div>
+  </nav>
+     
+  
+  <div class="hero-section d-flex flex-column justify-content-center align-items-center text-center">
+      <h1 class="display-2 text-white text-shadow">Artfully Crafted Events</h1>
+      <p class="lead text-white mb-4">Your Vision, Our Expertise.</p>
+  </div>
+  
+  <section id="services" class="container my-5 py-5">
+      <div class="row text-center g-4">
+          <div class="col-md-4">
+              <div class="service-box border-top border-5 border-warning">
+                  <h3>Corporate & Parties</h3>
+                  <p>From high-stakes board meetings to the wild birthday bashes of the century.</p>
+              </div>
+          </div>
+          <div class="col-md-4">
+              <div class="service-box border-top border-5 border-warning">
+                  <h3>Exquisite Catering</h3>
+                  <p>Gourmet experiences tailored to your palate, served with artistic flair.</p>
+              </div>
+          </div>
+          <div class="col-md-4">
+              <div class="service-box border-top border-5 border-warning">
+                  <h3>Bespoke Decor</h3>
+                  <p>Transforming empty halls into dreamscapes with our specialized design team.</p>
+              </div>
+          </div>
+      </div>
+  </section>
+  <div id="testimonialCarousel" class="carousel slide" data-bs-ride="carousel">
+      <div class="carousel-inner text-center">
+          <div class="carousel-item active">
+              <p class="h4 italic">"The most professional team I've ever worked with!"</p>
+              <small>- Sarah Jenkins</small>
+          </div>
+          <div class="carousel-item">
+              <p class="h4">"Our wedding was a dream thanks to EventHub's decor."</p>
+              <small>- Michael & Ana</small>
+          </div>
+      </div>
+  </div>
+  
+  <footer class="bg-dark text-white pt-5 pb-3">
+      <div class="container text-center">
+          <h4>Contact Us</h4>
+          <p>Email: hello@eventhub.com | Phone: +1 234 567 890</p>
+          <hr class="bg-white">
+          <p>&copy; 2024 EventHub Planning. All Rights Reserved.</p>
+      </div>
+  </footer>
+    
+  <!-- reach us modal -->
+  <div class="modal fade" id="reachUsModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-dark-orange text-white">
+          <h5>Plan Your Event With Us</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="reachUsForm" class="modal-body">
+          <div class="row g-2 mb-3">
+              <div class="col-md-6"><input type="text" id="guestName" class="form-control" placeholder="Your Name" required></div>
+              <div class="col-md-6"><input type="email" id="guestEmail" class="form-control" placeholder="Your Email" required></div>
+          </div>
+          <input type="text" id="guestPhone" class="form-control mb-3" placeholder="Phone Number" required>
+          <hr>
+          <input type="text" id="reachEventName" class="form-control mb-3" placeholder="Event Name (e.g. Wedding)" required>
+          <input type="date" id="reachEventDate" class="form-control mb-3" required>
+          <textarea id="reachDescription" class="form-control mb-3" placeholder="Tell us more about your vision..." rows="3"></textarea>
+          <button type="submit" class="btn btn-primary w-100">Send Inquiry</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- review modal -->
+  <div class="modal fade" id="reviewModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content text-center">
+        <div class="modal-header bg-dark-orange text-white">
+          <h5 class="modal-title">Share Your Experience</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="reviewForm" class="modal-body">
+          <input type="text" id="reviewerName" class="form-control mb-3" placeholder="Your Name" required>
+          <textarea id="reviewText" class="form-control mb-3" placeholder="Write your review..." rows="4" required></textarea>
+          <button type="submit" class="btn btn-warning w-100">Submit Review</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login modal -->
+  <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-dark-orange text-white">
+                <h5 class="modal-title">Planner Login</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="loginForm" class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="loginUsername" class="form-control" placeholder="email@example.com" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Login to Dashboard</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+  <!-- join modal -->
+  <div class="modal fade" id="registerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-dark-orange text-white">
+                <h5 class="modal-title">Join Our Planning Team</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="registerForm" class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" id="registerName" class="form-control" placeholder="Enter your full name" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="registerEmail" class="form-control" placeholder="email@example.com" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Create Password</label>
+                    <input type="password" id="registerPassword" class="form-control" placeholder="Minimum 6 characters" required>
+                </div>
+                <button type="submit" class="btn btn-warning w-100">Create Account</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // Redirect to role selection page if accessing root
+        if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+            // Only redirect if not already on a specific page
+            const currentPath = window.location.pathname;
+            if (currentPath === '/' || currentPath === '/index.html') {
+                window.location.href = '/select-role.html';
+            }
+        }
+    </script>
+</body>
+</html>
+
