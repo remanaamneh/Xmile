@@ -1,418 +1,896 @@
-// API_BASE should be loaded from config.js (loaded before this file)
-// Fallback if config.js is not loaded
-const API_BASE = typeof API_BASE !== 'undefined' ? API_BASE : (window.API_BASE || 'http://localhost:8080');
-console.log('Manager Dashboard - API_BASE:', API_BASE);
+/*********************************
+ * MANAGER DASHBOARD
+ * Handles manager/admin quote approval and management
+ * Version: 1.0.4
+ *********************************/
+
+console.log('=== MANAGER DASHBOARD JS LOADED ===');
+console.log('Version: 1.0.4');
+console.log('Timestamp:', new Date().toISOString());
+
+// API_BASE is defined in config.js as window.API_BASE
+// Use window.API_BASE directly - DO NOT redeclare
+console.log('API_BASE (manager-dashboard):', window.API_BASE);
 
 let authToken = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('=== MANAGER DASHBOARD INIT ===');
-    console.log('API_BASE:', API_BASE);
+    console.log('API_BASE:', window.API_BASE);
     
     // Check authentication
-    authToken = localStorage.getItem('token');
-    console.log('Auth token exists:', !!authToken);
-    
+    authToken = getToken();
     if (!authToken) {
-        console.log('No token found, redirecting to login');
+        console.warn('No token found, redirecting to login');
+        alert('פג תוקף התחברות. אנא התחבר שוב.');
         window.location.href = '/login.html';
         return;
     }
-
-    // Load pending quotes
+    
+    console.log('Token exists:', !!authToken);
+    console.log('Token length:', authToken ? authToken.length : 0);
+    
+    // Load pending quotes by default
     loadPendingQuotes();
-
-    // Setup event listeners
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', handleLogout);
-        console.log('Logout button listener attached');
-    } else {
-        console.error('Logout button not found!');
+    
+    // Setup tab change listeners
+    const pendingTab = document.getElementById('pending-tab');
+    if (pendingTab) {
+        pendingTab.addEventListener('shown.bs.tab', function() {
+            console.log('Pending tab activated');
+            loadPendingQuotes();
+        });
     }
     
-    const saveFinalPriceBtn = document.getElementById('saveFinalPriceBtn');
-    if (saveFinalPriceBtn) {
-        saveFinalPriceBtn.addEventListener('click', handleFinalizeQuote);
+    const historyTab = document.getElementById('history-tab');
+    if (historyTab) {
+        historyTab.addEventListener('shown.bs.tab', function() {
+            console.log('History tab activated');
+            loadHistoryQuotes();
+        });
     }
     
-    const sendToWorkersBtn = document.getElementById('sendToWorkersBtn');
-    if (sendToWorkersBtn) {
-        sendToWorkersBtn.addEventListener('click', handleSendToWorkers);
+    const eventsTab = document.getElementById('events-tab');
+    if (eventsTab) {
+        eventsTab.addEventListener('shown.bs.tab', function() {
+            console.log('Events tab activated');
+            loadEvents();
+        });
     }
     
-    const sendWorkerRequestBtn = document.getElementById('sendWorkerRequestBtn');
-    if (sendWorkerRequestBtn) {
-        sendWorkerRequestBtn.addEventListener('click', handleCreateWorkerRequest);
+    const workersTab = document.getElementById('workers-tab');
+    if (workersTab) {
+        workersTab.addEventListener('shown.bs.tab', function() {
+            console.log('Workers tab activated');
+            loadWorkers();
+        });
     }
+    
+    // Setup modal buttons
+    const saveApproveBtn = document.getElementById('saveApproveBtn');
+    if (saveApproveBtn) {
+        saveApproveBtn.addEventListener('click', handleApproveQuote);
+    }
+    
+    const saveRejectBtn = document.getElementById('saveRejectBtn');
+    if (saveRejectBtn) {
+        saveRejectBtn.addEventListener('click', handleRejectQuote);
+    }
+    
+    // Logout button uses onclick="window.logout()" directly in HTML
+    // No need for event listener here
     
     console.log('=== END MANAGER DASHBOARD INIT ===');
 });
 
+/**
+ * Load pending approvals from server
+ * DETERMINISTIC: Always stops loading spinner, always shows result or error
+ * This function is also aliased as loadPendingQuotes for backward compatibility
+ */
+async function loadPendingApprovals() {
+    console.log('loadPendingApprovals() called - delegating to loadPendingQuotes()');
+    return loadPendingQuotes();
+}
+
+/**
+ * Load pending quotes from server
+ * DETERMINISTIC: Always stops loading spinner, always shows result or error
+ */
 async function loadPendingQuotes() {
+    const quotesLoading = document.getElementById('quotesLoading');
+    const quotesList = document.getElementById('quotesList');
+    const quotesEmpty = document.getElementById('quotesEmpty');
+    const quotesError = document.getElementById('quotesError');
+    
+    console.log('=== LOADING PENDING QUOTES ===');
+    console.log('Timestamp:', new Date().toISOString());
+    
+    // Initialize UI state
+    if (quotesEmpty) quotesEmpty.style.display = 'none';
+    if (quotesList) quotesList.innerHTML = '';
+    if (quotesError) quotesError.style.display = 'none';
+    if (quotesLoading) {
+        quotesLoading.style.display = 'flex';
+        console.log('Loading spinner shown');
+    }
+    
+    let response = null;
+    let quotes = null;
+    let errorOccurred = false;
+    let errorMessage = '';
+    let responseBody = '';
+    
     try {
-        console.log('=== LOADING PENDING QUOTES ===');
-        console.log('URL:', `${API_BASE}/admin/quote-requests?status=MANAGER_REVIEW`);
-        console.log('Token exists:', !!authToken);
-        
-        // Use the new /admin/quote-requests endpoint with status filter
-        // Request quotes with MANAGER_REVIEW status (includes SENT_TO_MANAGER and submitted)
-        const response = await fetch(`${API_BASE}/admin/quote-requests?status=MANAGER_REVIEW`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Error response:', errorText);
-            throw new Error(`Failed to load quotes: ${response.status} - ${errorText}`);
+        // Get token fresh from storage (check both localStorage and sessionStorage)
+        authToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!authToken) {
+            console.error('No token found in storage');
+            errorOccurred = true;
+            errorMessage = 'פג תוקף התחברות. אנא התחבר שוב.';
+            alert(errorMessage);
+            window.location.href = '/login.html';
+            return;
         }
-
-        const quotes = await response.json();
-        console.log('Quotes received:', quotes.length);
-        console.log('Quotes data:', quotes);
-        displayQuotes(quotes);
-    } catch (error) {
-        console.error('=== ERROR LOADING QUOTES ===');
-        console.error('Error:', error);
-        console.error('Error message:', error.message);
-        console.error('=== END ERROR ===');
         
-        const quotesLoading = document.getElementById('quotesLoading');
+        console.log('Token found, length:', authToken.length);
+        
+        // Try endpoint 1: GET /admin/quotes/pending
+        const url1 = `${window.API_BASE}/admin/quotes/pending`;
+        console.log('=== ATTEMPT 1: GET /admin/quotes/pending ===');
+        console.log('Full URL:', url1);
+        console.log('Method: GET');
+        console.log('Headers:', {
+            'Authorization': 'Bearer ***' + authToken.substring(authToken.length - 4),
+            'Content-Type': 'application/json'
+        });
+        
+        try {
+            response = await fetch(url1, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            console.log('Response received');
+            console.log('Status:', response.status);
+            console.log('Status Text:', response.statusText);
+            console.log('OK:', response.ok);
+            console.log('Response URL:', response.url);
+            
+            if (response.ok) {
+                responseBody = await response.text();
+                console.log('Response body (raw):', responseBody);
+                try {
+                    quotes = JSON.parse(responseBody);
+                    console.log('Response body (parsed):', quotes);
+                    console.log('Quotes type:', typeof quotes);
+                    console.log('Quotes is array:', Array.isArray(quotes));
+                    console.log('Quotes count:', Array.isArray(quotes) ? quotes.length : 'N/A');
+                } catch (parseError) {
+                    console.error('Failed to parse JSON:', parseError);
+                    console.error('Response text:', responseBody);
+                    throw new Error('תשובה לא תקינה מהשרת (לא JSON)');
+                }
+            } else if (response.status === 404) {
+                // If 404, try fallback endpoint
+                console.log('Endpoint 1 returned 404, trying fallback endpoint...');
+                throw new Error('404 - trying fallback');
+            } else {
+                // For other errors, read response body
+                responseBody = await response.text().catch(() => 'Unknown error');
+                console.error('Endpoint 1 failed with status:', response.status);
+                console.error('Response body:', responseBody);
+                throw new Error(`Endpoint 1 returned ${response.status}`);
+            }
+        } catch (endpoint1Error) {
+            console.warn('Endpoint 1 failed:', endpoint1Error.message);
+            
+            // Try endpoint 2: GET /admin/quotes?status=QUOTE_PENDING (fallback)
+            const url2 = `${window.API_BASE}/admin/quotes?status=QUOTE_PENDING`;
+            console.log('=== ATTEMPT 2: GET /admin/quotes?status=QUOTE_PENDING ===');
+            console.log('Full URL:', url2);
+            console.log('Method: GET');
+            console.log('Headers:', {
+                'Authorization': 'Bearer ***' + authToken.substring(authToken.length - 4),
+                'Content-Type': 'application/json'
+            });
+            
+            try {
+                response = await fetch(url2, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Response received (attempt 2)');
+                console.log('Status:', response.status);
+                console.log('Status Text:', response.statusText);
+                console.log('OK:', response.ok);
+                console.log('Response URL:', response.url);
+                
+                if (response.ok) {
+                    responseBody = await response.text();
+                    console.log('Response body (raw):', responseBody);
+                    try {
+                        quotes = JSON.parse(responseBody);
+                        console.log('Response body (parsed):', quotes);
+                        console.log('Quotes type:', typeof quotes);
+                        console.log('Quotes is array:', Array.isArray(quotes));
+                        console.log('Quotes count:', Array.isArray(quotes) ? quotes.length : 'N/A');
+                    } catch (parseError) {
+                        console.error('Failed to parse JSON:', parseError);
+                        console.error('Response text:', responseBody);
+                        throw new Error('תשובה לא תקינה מהשרת (לא JSON)');
+                    }
+                } else {
+                    responseBody = await response.text().catch(() => 'Unknown error');
+                    console.error('Endpoint 2 also failed with status:', response.status);
+                    console.error('Response body:', responseBody);
+                }
+            } catch (endpoint2Error) {
+                console.error('Endpoint 2 also failed:', endpoint2Error.message);
+                // Try one more fallback: /admin/quote-requests?status=MANAGER_REVIEW
+                const url3 = `${window.API_BASE}/admin/quote-requests?status=MANAGER_REVIEW`;
+                console.log('=== ATTEMPT 3: GET /admin/quote-requests?status=MANAGER_REVIEW ===');
+                console.log('Full URL:', url3);
+                
+                response = await fetch(url3, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Response received (attempt 3)');
+                console.log('Status:', response.status);
+                console.log('OK:', response.ok);
+                
+                if (response.ok) {
+                    responseBody = await response.text();
+                    quotes = JSON.parse(responseBody);
+                    console.log('Quotes count (attempt 3):', Array.isArray(quotes) ? quotes.length : 'N/A');
+                } else {
+                    responseBody = await response.text().catch(() => 'Unknown error');
+                }
+            }
+        }
+        
+        // Handle HTTP status codes
+        if (response && response.status === 401) {
+            console.error('401 Unauthorized - Token expired or invalid');
+            errorOccurred = true;
+            errorMessage = 'פג תוקף התחברות. אנא התחבר שוב.';
+            localStorage.removeItem('token');
+            sessionStorage.removeItem('token');
+            alert(errorMessage);
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        if (response && response.status === 403) {
+            console.error('403 Forbidden - No permission');
+            errorOccurred = true;
+            errorMessage = 'אין לך הרשאה לגשת לבקשות לאישור';
+            if (responseBody) {
+                errorMessage += `\nפרטים: ${responseBody}`;
+            }
+        }
+        
+        if (response && response.status === 404) {
+            console.error('404 Not Found - Endpoint does not exist');
+            errorOccurred = true;
+            const attemptedUrl = response.url || 'unknown';
+            errorMessage = `הנתיב לא קיים: ${attemptedUrl}`;
+            if (responseBody) {
+                errorMessage += `\nפרטים: ${responseBody}`;
+            }
+        }
+        
+        if (response && response.status >= 500) {
+            console.error('Server error:', response.status);
+            errorOccurred = true;
+            errorMessage = `שגיאת שרת (${response.status}): ${response.statusText}`;
+            if (responseBody) {
+                errorMessage += `\nפרטים: ${responseBody}`;
+            }
+        }
+        
+        if (response && !response.ok && !errorOccurred) {
+            console.error('Response not OK:', response.status);
+            errorOccurred = true;
+            errorMessage = `שגיאה בטעינת נתונים: ${response.status} ${response.statusText}`;
+            if (responseBody) {
+                errorMessage += `\nפרטים: ${responseBody}`;
+            }
+        }
+        
+    } catch (error) {
+        console.error('=== EXCEPTION IN loadPendingQuotes ===');
+        console.error('Error type:', error.constructor.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        console.error('=== END EXCEPTION ===');
+        
+        errorOccurred = true;
+        errorMessage = `שגיאה: ${error.message}`;
+        if (responseBody) {
+            errorMessage += `\nפרטים: ${responseBody}`;
+        }
+    } finally {
+        // ALWAYS stop loading spinner
+        console.log('=== FINALLY: Stopping loading spinner ===');
         if (quotesLoading) {
             quotesLoading.style.display = 'none';
+            console.log('Loading spinner hidden');
         }
         
-        const quotesList = document.getElementById('quotesList');
-        if (quotesList) {
-            quotesList.innerHTML = `
-                <div class="col-12">
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle"></i> שגיאה בטעינת הצעות המחיר: ${error.message}
-                    </div>
-                </div>
-            `;
+        // Display result or error
+        if (errorOccurred) {
+            console.log('Displaying error message');
+            if (quotesError) {
+                quotesError.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i> <strong>שגיאה:</strong> ${escapeHtml(errorMessage)}
+                    <br><small>אנא בדוק את ה-Console (F12) לפרטים נוספים</small>
+                `;
+                quotesError.style.display = 'block';
+            }
+            if (quotesList) quotesList.innerHTML = '';
+            if (quotesEmpty) quotesEmpty.style.display = 'none';
+        } else if (quotes && Array.isArray(quotes)) {
+            if (quotesError) quotesError.style.display = 'none';
+            if (quotes.length === 0) {
+                console.log('No quotes found - showing empty state');
+                if (quotesEmpty) {
+                    quotesEmpty.innerHTML = `
+                        <i class="fas fa-inbox"></i>
+                        <p>אין בקשות לאישור כרגע</p>
+                    `;
+                    quotesEmpty.style.display = 'block';
+                }
+                if (quotesList) quotesList.innerHTML = '';
+            } else {
+                console.log('Displaying', quotes.length, 'quotes');
+                displayQuotes(quotes);
+                if (quotesEmpty) quotesEmpty.style.display = 'none';
+            }
+        } else {
+            console.error('Invalid quotes data:', quotes);
+            if (quotesError) {
+                quotesError.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i> שגיאה: תשובה לא תקינה מהשרת (צפוי מערך)
+                    <br><small>סוג נתונים: ${typeof quotes}</small>
+                `;
+                quotesError.style.display = 'block';
+            }
+            if (quotesList) quotesList.innerHTML = '';
+            if (quotesEmpty) quotesEmpty.style.display = 'none';
         }
+        
+        console.log('=== END LOADING PENDING QUOTES ===');
     }
 }
 
+/**
+ * Display quotes in the UI as a table
+ */
 function displayQuotes(quotes) {
     const quotesList = document.getElementById('quotesList');
-    const quotesLoading = document.getElementById('quotesLoading');
-    const quotesEmpty = document.getElementById('quotesEmpty');
-
-    quotesLoading.style.display = 'none';
-
-    if (!quotes || quotes.length === 0) {
-        quotesEmpty.style.display = 'block';
-        quotesList.innerHTML = '';
+    
+    if (!quotesList) {
+        console.error('quotesList element not found');
         return;
     }
-
-    quotesEmpty.style.display = 'none';
-    quotesList.innerHTML = quotes.map(quote => `
-        <div class="col-md-6 col-lg-4">
-            <div class="quote-card">
-                <div class="quote-header">
-                    <h6 class="quote-title">${quote.eventName || 'ללא שם'}</h6>
-                    <span class="quote-status status-submitted">${getStatusText(quote.status === 'pending_approval' ? 'submitted' : quote.status)}</span>
-                </div>
-                ${quote.clientUserName ? `
-                    <div class="mb-2">
-                        <small class="text-muted">
-                            <i class="fas fa-user"></i> לקוח: ${quote.clientUserName}
-                            ${quote.clientUserEmail ? ` (${quote.clientUserEmail})` : ''}
-                        </small>
-                    </div>
-                ` : ''}
-                <div class="quote-details">
-                    ${quote.participantCount ? `
-                        <div class="quote-detail-item">
-                            <span class="quote-detail-label">מספר משתתפים</span>
-                            <span class="quote-detail-value">${quote.participantCount}</span>
-                        </div>
-                    ` : ''}
-                    ${quote.location ? `
-                        <div class="quote-detail-item">
-                            <span class="quote-detail-label">מיקום</span>
-                            <span class="quote-detail-value">${quote.location}</span>
-                        </div>
-                    ` : ''}
-                    ${quote.eventDate ? `
-                        <div class="quote-detail-item">
-                            <span class="quote-detail-label">תאריך</span>
-                            <span class="quote-detail-value">${formatDate(quote.eventDate)}</span>
-                        </div>
-                    ` : ''}
-                    ${quote.startTime ? `
-                        <div class="quote-detail-item">
-                            <span class="quote-detail-label">שעה</span>
-                            <span class="quote-detail-value">${quote.startTime}</span>
-                        </div>
-                    ` : ''}
-                </div>
-                <div class="quote-price">
-                    ${formatPrice(quote.quoteAmount || quote.price)} ₪
-                </div>
-                ${quote.workersNeeded ? `
-                    <div class="mb-2">
-                        <small class="text-muted">
-                            <i class="fas fa-users"></i> נציגי רישום נדרשים: ${quote.workersNeeded}
-                        </small>
-                    </div>
-                ` : ''}
-                ${quote.notes ? `
-                    <div class="mb-2">
-                        <small class="text-muted">
-                            <i class="fas fa-sticky-note"></i> הערות: ${quote.notes.substring(0, 50)}${quote.notes.length > 50 ? '...' : ''}
-                        </small>
-                    </div>
-                ` : ''}
-                <div class="d-flex gap-2">
-                    <button class="btn btn-primary btn-sm flex-fill" onclick="openFinalizeModal(${quote.id}, ${JSON.stringify(quote).replace(/"/g, '&quot;')})">
-                        <i class="fas fa-check"></i> אישור
-                    </button>
-                    <button class="btn btn-danger btn-sm flex-fill" onclick="openRejectModal(${quote.id}, ${JSON.stringify(quote).replace(/"/g, '&quot;')})">
-                        <i class="fas fa-times"></i> דחייה
-                    </button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-function openFinalizeModal(quoteId, quote) {
-    document.getElementById('finalizeQuoteId').value = quoteId;
-    document.getElementById('finalPrice').value = quote.quoteAmount || quote.price || '';
-    document.getElementById('requiredWorkersCount').value = quote.workersNeeded || quote.requestedWorkers || 1;
-    document.getElementById('finalNotes').value = '';
     
-    // Display quote details
-    const quoteDetails = document.getElementById('quoteDetails');
-    quoteDetails.innerHTML = `
-        <div class="row">
-            <div class="col-md-6">
-                <strong>שם האירוע:</strong> ${quote.eventName || 'ללא שם'}<br>
-                <strong>מספר משתתפים:</strong> ${quote.participantCount || 'לא צוין'}<br>
-                <strong>מיקום:</strong> ${quote.location || 'לא צוין'}<br>
-                ${quote.clientUserName ? `<strong>לקוח:</strong> ${quote.clientUserName}<br>` : ''}
-                ${quote.clientUserEmail ? `<strong>אימייל לקוח:</strong> ${quote.clientUserEmail}<br>` : ''}
-            </div>
-            <div class="col-md-6">
-                <strong>תאריך:</strong> ${quote.eventDate ? formatDate(quote.eventDate) : 'לא צוין'}<br>
-                <strong>שעה:</strong> ${quote.startTime || 'לא צוין'}<br>
-                <strong>מחיר ראשוני:</strong> ${formatPrice(quote.quoteAmount || quote.price)} ₪<br>
-                ${quote.productionCompanyName ? `<strong>חברת הפקה:</strong> ${quote.productionCompanyName}<br>` : ''}
-            </div>
-        </div>
-        ${quote.notes ? `
-            <div class="row mt-2">
-                <div class="col-12">
-                    <strong>הערות:</strong><br>
-                    <div class="border p-2 rounded bg-light">${quote.notes}</div>
-                </div>
-            </div>
-        ` : ''}
+    console.log('=== DISPLAYING QUOTES ===');
+    console.log('Quotes count:', quotes.length);
+    
+    // Create table HTML
+    let tableHTML = `
+        <div class="col-12">
+            <div class="pending-table-container">
+                <table class="pending-table">
+                    <thead>
+                        <tr>
+                            <th>מזהה</th>
+                            <th>שם אירוע</th>
+                            <th>תאריך</th>
+                            <th>מיקום</th>
+                            <th>מספר משתתפים</th>
+                            <th>עובדים מבוקשים</th>
+                            <th>סטטוס</th>
+                            <th>פעולות</th>
+                        </tr>
+                    </thead>
+                    <tbody>
     `;
     
-    document.getElementById('requestedWorkersCount').textContent = quote.workersNeeded || quote.requestedWorkers || 0;
+    quotes.forEach((quote, index) => {
+        // Handle both AdminQuoteResponse and QuoteRequestDTO formats
+        const quoteId = quote.id;
+        const eventName = quote.eventName || 'ללא שם';
+        const status = quote.status || 'UNKNOWN';
+        const participantCount = quote.participantCount || 0;
+        const location = quote.location || 'לא צוין';
+        const eventDate = quote.eventDate || '';
+        const requestedWorkers = quote.requestedWorkers || quote.workersNeeded || 0;
+        
+        console.log(`Quote ${index + 1}:`, {
+            id: quoteId,
+            eventName: eventName,
+            status: status,
+            participantCount: participantCount
+        });
+        
+        tableHTML += `
+            <tr>
+                <td>${quoteId}</td>
+                <td>${escapeHtml(eventName)}</td>
+                <td>${eventDate ? formatDate(eventDate) : 'לא צוין'}</td>
+                <td>${escapeHtml(location)}</td>
+                <td>${participantCount}</td>
+                <td>${requestedWorkers}</td>
+                <td>
+                    <span class="status-badge ${getStatusBadgeClass(status)}">
+                        ${getStatusText(status)}
+                    </span>
+                </td>
+                <td>
+                    <div class="table-actions">
+                        <button class="table-btn table-btn-primary" onclick="openApproveModal(${quoteId}, ${JSON.stringify(quote).replace(/"/g, '&quot;')})">
+                            <i class="fas fa-check"></i> אישור
+                        </button>
+                        <button class="table-btn table-btn-danger" onclick="openRejectModal(${quoteId})">
+                            <i class="fas fa-times"></i> דחייה
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
     
-    const modal = new bootstrap.Modal(document.getElementById('finalizeQuoteModal'));
+    tableHTML += `
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    quotesList.innerHTML = tableHTML;
+    console.log('=== END DISPLAYING QUOTES ===');
+}
+
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Open approve quote modal
+ */
+function openApproveModal(quoteId, quote) {
+    try {
+        const quoteObj = typeof quote === 'string' ? JSON.parse(quote.replace(/&quot;/g, '"')) : quote;
+        
+        document.getElementById('approveQuoteId').value = quoteId;
+        document.getElementById('finalPrice').value = quoteObj.quoteAmount || quoteObj.price || '';
+        document.getElementById('requestedWorkers').value = quoteObj.workersNeeded || quoteObj.requestedWorkers || 1;
+        document.getElementById('adminNotes').value = '';
+        
+        // Display quote details
+        const quoteDetails = document.getElementById('approveQuoteDetails');
+        if (quoteDetails) {
+            quoteDetails.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>שם האירוע:</strong> ${escapeHtml(quoteObj.eventName || 'ללא שם')}<br>
+                        <strong>מספר משתתפים:</strong> ${quoteObj.participantCount || 'לא צוין'}<br>
+                        <strong>מיקום:</strong> ${escapeHtml(quoteObj.location || 'לא צוין')}<br>
+                        ${quoteObj.clientUserName ? `<strong>לקוח:</strong> ${escapeHtml(quoteObj.clientUserName)}<br>` : ''}
+                        ${quoteObj.clientUserEmail ? `<strong>אימייל לקוח:</strong> ${escapeHtml(quoteObj.clientUserEmail)}<br>` : ''}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>תאריך:</strong> ${quoteObj.eventDate ? formatDate(quoteObj.eventDate) : 'לא צוין'}<br>
+                        <strong>שעה:</strong> ${formatTime(quoteObj.startTime) || 'לא צוין'}<br>
+                        <strong>מחיר ראשוני:</strong> ${quoteObj.quoteAmount ? formatPriceWithCurrency(quoteObj.quoteAmount) : 'לא צוין'}<br>
+                        ${quoteObj.productionCompanyName ? `<strong>חברת הפקה:</strong> ${escapeHtml(quoteObj.productionCompanyName)}<br>` : ''}
+                    </div>
+                </div>
+                ${quoteObj.notes ? `
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <strong>הערות:</strong><br>
+                            <div class="border p-2 rounded bg-light">${escapeHtml(quoteObj.notes)}</div>
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('approveQuoteModal'));
+        modal.show();
+    } catch (error) {
+        console.error('Error opening approve modal:', error);
+        showError('שגיאה בפתיחת טופס אישור: ' + error.message);
+    }
+}
+
+/**
+ * Open reject quote modal
+ */
+function openRejectModal(quoteId) {
+    document.getElementById('rejectQuoteId').value = quoteId;
+    document.getElementById('rejectReason').value = '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('rejectQuoteModal'));
     modal.show();
 }
 
-function openRejectModal(quoteId, quote) {
-    const reason = prompt('אנא הזן סיבת דחייה:', '');
-    if (reason && reason.trim()) {
-        rejectQuote(quoteId, reason.trim());
-    }
-}
-
-async function rejectQuote(quoteId, reason) {
-    try {
-        const response = await fetch(`${API_BASE}/admin/quote-requests/${quoteId}/reject`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                reason: reason
-            })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'שגיאה בדחיית הצעת המחיר');
-        }
-
-        alert('הצעת המחיר נדחתה בהצלחה!');
-        loadPendingQuotes();
-    } catch (error) {
-        console.error('Error rejecting quote:', error);
-        alert('שגיאה: ' + error.message);
-    }
-}
-
-async function handleFinalizeQuote() {
-    const quoteId = document.getElementById('finalizeQuoteId').value;
+/**
+ * Handle approve quote
+ */
+async function handleApproveQuote() {
+    const quoteId = document.getElementById('approveQuoteId').value;
     const finalPrice = document.getElementById('finalPrice').value;
-    const notes = document.getElementById('finalNotes').value;
-
+    const requestedWorkers = document.getElementById('requestedWorkers').value;
+    const adminNotes = document.getElementById('adminNotes').value;
+    
     if (!finalPrice || parseFloat(finalPrice) <= 0) {
-        alert('אנא הזן מחיר סופי תקין');
+        showError('אנא הזן מחיר סופי תקין');
         return;
     }
-
+    
+    if (!requestedWorkers || parseInt(requestedWorkers) < 0) {
+        showError('אנא הזן מספר עובדים תקין');
+        return;
+    }
+    
     try {
-        // Use the new /admin/quote-requests/{id}/approve endpoint
-        const response = await fetch(`${API_BASE}/admin/quote-requests/${quoteId}/approve`, {
-            method: 'POST',
+        console.log('=== APPROVING QUOTE ===');
+        console.log('Quote ID:', quoteId);
+        console.log('Final Price:', finalPrice);
+        console.log('Requested Workers:', requestedWorkers);
+        
+        // Get token fresh
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) {
+            alert('פג תוקף התחברות. אנא התחבר שוב.');
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        // Use PUT /admin/quotes/{quoteId}/approve endpoint
+        const url = `${window.API_BASE}/admin/quotes/${quoteId}/approve`;
+        console.log('URL:', url);
+        console.log('Method: PUT');
+        console.log('Headers:', {
+            'Authorization': 'Bearer ***' + token.substring(token.length - 4),
+            'Content-Type': 'application/json'
+        });
+        
+        const response = await fetch(url, {
+            method: 'PUT',
             headers: {
-                'Authorization': `Bearer ${authToken}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 finalPrice: parseFloat(finalPrice),
-                requiredWorkersCount: parseInt(requiredWorkersCount),
-                adminNotes: notes
+                requestedWorkers: parseInt(requestedWorkers),
+                adminNotes: adminNotes || null
             })
         });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'שגיאה באישור הצעת המחיר');
-        }
-
-        const modal = bootstrap.Modal.getInstance(document.getElementById('finalizeQuoteModal'));
-        modal.hide();
-
-        const updatedQuote = await response.json();
-        console.log('Quote approved:', updatedQuote);
         
-        alert('הצעת המחיר אושרה בהצלחה! הצעות עבודה נשלחו לעובדים.');
+        console.log('Response status:', response.status);
+        
+        if (response.status === 401) {
+            alert('פג תוקף התחברות. אנא התחבר שוב.');
+            localStorage.removeItem('token');
+            sessionStorage.removeItem('token');
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        if (!response.ok) {
+            const errorBody = await response.text().catch(() => 'Unknown error');
+            console.error('Error response body:', errorBody);
+            throw new Error(`שגיאה ${response.status}: ${errorBody}`);
+        }
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('approveQuoteModal'));
+        if (modal) modal.hide();
+        
+        showSuccess('הצעת המחיר אושרה בהצלחה!');
         loadPendingQuotes();
     } catch (error) {
-        console.error('Error finalizing quote:', error);
-        alert('שגיאה: ' + error.message);
+        console.error('Error approving quote:', error);
+        showError(error.message || 'שגיאה באישור הצעת המחיר');
     }
 }
 
-async function handleSendToWorkers() {
-    const quoteId = document.getElementById('finalizeQuoteId').value;
-    const requestedWorkers = parseInt(document.getElementById('requestedWorkersCount').textContent) || 0;
-
-    if (requestedWorkers <= 0) {
-        alert('מספר העובדים הנדרש לא תקין');
+/**
+ * Handle reject quote
+ */
+async function handleRejectQuote() {
+    const quoteId = document.getElementById('rejectQuoteId').value;
+    const reason = document.getElementById('rejectReason').value;
+    
+    if (!reason || !reason.trim()) {
+        showError('אנא הזן סיבת דחייה');
         return;
     }
-
-    // First, get the event ID from the quote
+    
     try {
-        const quoteResponse = await fetch(`${API_BASE}/quotes/${quoteId}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!quoteResponse.ok) {
-            throw new Error('Failed to get quote details');
-        }
-
-        const quote = await quoteResponse.json();
-        const eventId = quote.eventId;
-
-        // Open worker request modal
-        document.getElementById('workerRequestEventId').value = eventId;
-        document.getElementById('requestedWorkers').value = requestedWorkers;
+        console.log('=== REJECTING QUOTE ===');
+        console.log('Quote ID:', quoteId);
+        console.log('Reason:', reason);
         
-        const finalizeModal = bootstrap.Modal.getInstance(document.getElementById('finalizeQuoteModal'));
-        finalizeModal.hide();
-
-        const workerRequestModal = new bootstrap.Modal(document.getElementById('createWorkerRequestModal'));
-        workerRequestModal.show();
-    } catch (error) {
-        console.error('Error getting quote:', error);
-        alert('שגיאה בטעינת פרטי האירוע');
-    }
-}
-
-async function handleCreateWorkerRequest() {
-    const eventId = document.getElementById('workerRequestEventId').value;
-    const requestedWorkers = parseInt(document.getElementById('requestedWorkers').value);
-    const radiusKm = parseFloat(document.getElementById('radiusKm').value) || 50;
-
-    if (!eventId || !requestedWorkers || requestedWorkers <= 0) {
-        alert('אנא מלא את כל השדות הנדרשים');
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE}/admin/worker-requests`, {
-            method: 'POST',
+        // Get token fresh
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) {
+            alert('פג תוקף התחברות. אנא התחבר שוב.');
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        // Use PUT /admin/quotes/{id}/reject endpoint
+        const url = `${window.API_BASE}/admin/quotes/${quoteId}/reject`;
+        console.log('URL:', url);
+        console.log('Method: PUT');
+        
+        const response = await fetch(url, {
+            method: 'PUT',
             headers: {
-                'Authorization': `Bearer ${authToken}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                eventId: parseInt(eventId),
-                requestedWorkers: requestedWorkers,
-                radiusKm: radiusKm
+                reason: reason.trim()
             })
         });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'שגיאה בשליחת המשימה לעובדים');
+        
+        console.log('Response status:', response.status);
+        
+        if (response.status === 401) {
+            alert('פג תוקף התחברות. אנא התחבר שוב.');
+            localStorage.removeItem('token');
+            sessionStorage.removeItem('token');
+            window.location.href = '/login.html';
+            return;
         }
-
-        const modal = bootstrap.Modal.getInstance(document.getElementById('createWorkerRequestModal'));
-        modal.hide();
-
-        alert('המשימה נשלחה לעובדים בהצלחה!');
+        
+        if (!response.ok) {
+            const errorBody = await response.text().catch(() => 'Unknown error');
+            console.error('Error response body:', errorBody);
+            throw new Error(`שגיאה ${response.status}: ${errorBody}`);
+        }
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('rejectQuoteModal'));
+        if (modal) modal.hide();
+        
+        showSuccess('הצעת המחיר נדחתה בהצלחה!');
+        loadPendingQuotes();
     } catch (error) {
-        console.error('Error creating worker request:', error);
-        alert('שגיאה: ' + error.message);
+        console.error('Error rejecting quote:', error);
+        showError(error.message || 'שגיאה בדחיית הצעת המחיר');
     }
 }
 
-function handleLogout() {
-    console.log('=== LOGOUT CLICKED ===');
+/**
+ * Load history quotes with filters
+ */
+async function loadHistoryQuotes() {
+    const historyLoading = document.getElementById('historyLoading');
+    const historyList = document.getElementById('historyList');
+    const historyEmpty = document.getElementById('historyEmpty');
+    
     try {
-        localStorage.removeItem('token');
-        console.log('Token removed from localStorage');
-        window.location.href = '/login.html';
+        if (historyLoading) historyLoading.style.display = 'flex';
+        
+        const statusFilter = document.getElementById('historyStatusFilter')?.value || '';
+        const dateFrom = document.getElementById('historyDateFrom')?.value || '';
+        const dateTo = document.getElementById('historyDateTo')?.value || '';
+        
+        // Get token fresh
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) {
+            alert('פג תוקף התחברות. אנא התחבר שוב.');
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        // Build query params
+        const params = new URLSearchParams();
+        if (statusFilter) params.append('status', statusFilter);
+        if (dateFrom) params.append('dateFrom', dateFrom);
+        if (dateTo) params.append('dateTo', dateTo);
+        
+        const queryString = params.toString();
+        const url = `${window.API_BASE}/admin/quote-requests${queryString ? '?' + queryString : ''}`;
+        console.log('Loading history from:', url);
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.status === 401) {
+            alert('פג תוקף התחברות. אנא התחבר שוב.');
+            localStorage.removeItem('token');
+            sessionStorage.removeItem('token');
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        if (!response.ok) {
+            throw new Error('שגיאה בטעינת היסטוריה');
+        }
+        
+        const quotes = await response.json();
+        
+        if (historyLoading) historyLoading.style.display = 'none';
+        
+        if (!quotes || quotes.length === 0) {
+            if (historyEmpty) historyEmpty.style.display = 'block';
+            if (historyList) historyList.innerHTML = '';
+            return;
+        }
+        
+        if (historyEmpty) historyEmpty.style.display = 'none';
+        
+        if (historyList) {
+            historyList.innerHTML = quotes.map(quote => `
+                <div class="col-md-6 col-lg-4">
+                    <div class="quote-card">
+                        <div class="quote-header">
+                            <h6 class="quote-title">${escapeHtml(quote.eventName || 'ללא שם')}</h6>
+                            <span class="status-badge ${getStatusBadgeClass(quote.status)}">
+                                ${getStatusText(quote.status)}
+                            </span>
+                        </div>
+                        <div class="quote-details">
+                            <div class="quote-detail-item">
+                                <span class="quote-detail-label">תאריך</span>
+                                <span class="quote-detail-value">${formatDate(quote.eventDate)}</span>
+                            </div>
+                            ${quote.quoteAmount ? `
+                                <div class="quote-detail-item">
+                                    <span class="quote-detail-label">מחיר</span>
+                                    <span class="quote-detail-value">${formatPriceWithCurrency(quote.quoteAmount)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${quote.approvedAt ? `
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar-check"></i> אושר ב: ${formatDate(quote.approvedAt)}
+                                </small>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
     } catch (error) {
-        console.error('Error during logout:', error);
-        // Force redirect even if there's an error
-        window.location.href = '/login.html';
+        console.error('Error loading history:', error);
+        if (historyLoading) historyLoading.style.display = 'none';
+        showError(error.message || 'שגיאה בטעינת היסטוריה');
     }
 }
 
-function getStatusText(status) {
-    const statusMap = {
-        'submitted': 'ממתין לאישור',
-        'approved': 'אושר',
-        'rejected': 'נדחה',
-        'cancelled': 'בוטל'
-    };
-    return statusMap[status] || status;
+/**
+ * Load events
+ */
+async function loadEvents() {
+    const eventsLoading = document.getElementById('eventsLoading');
+    const eventsList = document.getElementById('eventsList');
+    const eventsEmpty = document.getElementById('eventsEmpty');
+    
+    try {
+        if (eventsLoading) eventsLoading.style.display = 'flex';
+        
+        // Get token fresh
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) {
+            alert('פג תוקף התחברות. אנא התחבר שוב.');
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        const url = `${window.API_BASE}/events/my`;
+        console.log('Loading events from:', url);
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.status === 401) {
+            alert('פג תוקף התחברות. אנא התחבר שוב.');
+            localStorage.removeItem('token');
+            sessionStorage.removeItem('token');
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        if (!response.ok) {
+            throw new Error('שגיאה בטעינת אירועים');
+        }
+        
+        const events = await response.json();
+        
+        if (eventsLoading) eventsLoading.style.display = 'none';
+        
+        if (!events || events.length === 0) {
+            if (eventsEmpty) eventsEmpty.style.display = 'block';
+            if (eventsList) eventsList.innerHTML = '';
+            return;
+        }
+        
+        if (eventsEmpty) eventsEmpty.style.display = 'none';
+        
+        if (eventsList) {
+            eventsList.innerHTML = events.map(event => `
+                <div class="col-md-6 col-lg-4">
+                    <div class="quote-card">
+                        <h6 class="quote-title">${escapeHtml(event.name || 'ללא שם')}</h6>
+                        <div class="quote-details">
+                            <div class="quote-detail-item">
+                                <span class="quote-detail-label">תאריך</span>
+                                <span class="quote-detail-value">${formatDate(event.eventDate)}</span>
+                            </div>
+                            <div class="quote-detail-item">
+                                <span class="quote-detail-label">מיקום</span>
+                                <span class="quote-detail-value">${escapeHtml(event.location || 'לא צוין')}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading events:', error);
+        if (eventsLoading) eventsLoading.style.display = 'none';
+        showError(error.message || 'שגיאה בטעינת אירועים');
+    }
 }
 
-function formatPrice(price) {
-    if (!price) return '0';
-    return parseFloat(price).toLocaleString('he-IL');
+/**
+ * Load workers
+ */
+async function loadWorkers() {
+    const workersLoading = document.getElementById('workersLoading');
+    const workersList = document.getElementById('workersList');
+    const workersEmpty = document.getElementById('workersEmpty');
+    
+    try {
+        if (workersLoading) workersLoading.style.display = 'flex';
+        
+        // TODO: Implement workers endpoint
+        // For now, show empty state
+        if (workersLoading) workersLoading.style.display = 'none';
+        
+        if (workersEmpty) workersEmpty.style.display = 'block';
+        if (workersList) workersList.innerHTML = '';
+    } catch (error) {
+        console.error('Error loading workers:', error);
+        if (workersLoading) workersLoading.style.display = 'none';
+        showError(error.message || 'שגיאה בטעינת עובדים');
+    }
 }
-
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('he-IL');
-}
-

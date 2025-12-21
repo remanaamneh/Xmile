@@ -3,21 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>לוח בקרה - מנהל</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="common-styles.css" rel="stylesheet">
-    <link href="manager-dashboard-style.css" rel="stylesheet">
+    <link href="css/common.css?v=1.0.3" rel="stylesheet">
+    <link href="manager-dashboard.css?v=1.0.3" rel="stylesheet">
 </head>
 <body>
-    <header class="custom-header">
+    <!-- Common Header -->
+    <header class="common-header">
         <div class="container">
             <div class="d-flex justify-content-between align-items-center">
                 <div class="logo-section">
-                    <h1 class="logo-text">Xmile</h1>
+                    <div class="logo-container">
+                        <span class="logo-x">X</span>
+                        <span class="logo-mile">mile</span>
+                    </div>
                     <p class="logo-tagline">בית של פתרונות רישום</p>
                 </div>
-                <button class="btn btn-outline-light" id="logoutBtn">
+                <button class="btn-logout" id="logoutBtn" type="button" onclick="window.logout()">
                     <i class="fas fa-sign-out-alt"></i> התנתק
                 </button>
             </div>
@@ -25,33 +32,139 @@
     </header>
 
     <main class="container mt-4">
-        <div class="row">
-            <div class="col-12">
-                <h2 class="page-title mb-4">
-                    <i class="fas fa-tasks"></i> ניהול הצעות מחיר ועובדים
-                </h2>
-            </div>
-        </div>
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button" role="tab">
+                    <i class="fas fa-clock"></i> בקשות לאישור
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">
+                    <i class="fas fa-history"></i> היסטוריה
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="events-tab" data-bs-toggle="tab" data-bs-target="#events" type="button" role="tab">
+                    <i class="fas fa-calendar"></i> אירועים
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="workers-tab" data-bs-toggle="tab" data-bs-target="#workers" type="button" role="tab">
+                    <i class="fas fa-users"></i> עובדים
+                </button>
+            </li>
+        </ul>
 
-        <!-- Pending Quotes Section -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white">
+        <!-- Tab Content -->
+        <div class="tab-content" id="dashboardTabContent">
+            <!-- Pending Quotes Tab -->
+            <div class="tab-pane fade show active" id="pending" role="tabpanel">
+                <div class="common-card">
+                    <div class="common-card-header">
                         <h5 class="mb-0">
                             <i class="fas fa-file-invoice-dollar"></i> הצעות מחיר ממתינות
-                        </div>
+                        </h5>
                     </div>
-                    <div class="card-body">
-                        <div id="quotesLoading" class="text-center py-4">
+                    <div class="common-card-body">
+                        <div id="quotesLoading" class="loading-spinner">
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">טוען...</span>
                             </div>
+                            <p class="mt-3 text-muted">טוען בקשות לאישור...</p>
                         </div>
                         <div id="quotesList" class="row g-3"></div>
-                        <div id="quotesEmpty" class="text-center py-4 text-muted" style="display: none;">
-                            <i class="fas fa-inbox fa-3x mb-3"></i>
-                            <p>אין הצעות מחיר ממתינות</p>
+                        <div id="quotesEmpty" class="empty-state" style="display: none;">
+                            <i class="fas fa-inbox"></i>
+                            <p>אין בקשות ממתינות כרגע</p>
+                        </div>
+                        <div id="quotesError" class="error-message" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Tab -->
+            <div class="tab-pane fade" id="history" role="tabpanel">
+                <div class="common-card">
+                    <div class="common-card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-history"></i> היסטוריית הצעות מחיר
+                        </h5>
+                    </div>
+                    <div class="common-card-body">
+                        <!-- Filters -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">סטטוס</label>
+                                <select class="form-control" id="historyStatusFilter">
+                                    <option value="">הכל</option>
+                                    <option value="APPROVED">אושר</option>
+                                    <option value="REJECTED">נדחה</option>
+                                    <option value="CANCELLED">בוטל</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">מתאריך</label>
+                                <input type="date" class="form-control" id="historyDateFrom">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">עד תאריך</label>
+                                <input type="date" class="form-control" id="historyDateTo">
+                            </div>
+                        </div>
+                        <button class="btn-primary-action" onclick="loadHistoryQuotes()">
+                            <i class="fas fa-filter"></i> סנן
+                        </button>
+                        
+                        <div id="historyLoading" class="loading-spinner" style="display: none;">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                        <div id="historyList" class="row g-3 mt-3"></div>
+                        <div id="historyEmpty" class="empty-state" style="display: none;">
+                            <i class="fas fa-inbox"></i>
+                            <p>אין הצעות מחיר בהיסטוריה</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Events Tab -->
+            <div class="tab-pane fade" id="events" role="tabpanel">
+                <div class="common-card">
+                    <div class="common-card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar"></i> אירועים מאושרים
+                        </h5>
+                    </div>
+                    <div class="common-card-body">
+                        <div id="eventsLoading" class="loading-spinner">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                        <div id="eventsList" class="row g-3"></div>
+                        <div id="eventsEmpty" class="empty-state" style="display: none;">
+                            <i class="fas fa-inbox"></i>
+                            <p>אין אירועים מאושרים</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workers Tab -->
+            <div class="tab-pane fade" id="workers" role="tabpanel">
+                <div class="common-card">
+                    <div class="common-card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-users"></i> ניהול עובדים
+                        </h5>
+                    </div>
+                    <div class="common-card-body">
+                        <div id="workersLoading" class="loading-spinner">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                        <div id="workersList" class="row g-3"></div>
+                        <div id="workersEmpty" class="empty-state" style="display: none;">
+                            <i class="fas fa-inbox"></i>
+                            <p>אין עובדים זמינים</p>
                         </div>
                     </div>
                 </div>
@@ -59,119 +172,80 @@
         </div>
     </main>
 
-    <!-- Finalize Quote Modal -->
-    <div class="modal fade" id="finalizeQuoteModal" tabindex="-1">
+    <!-- Approve Quote Modal -->
+    <div class="modal fade" id="approveQuoteModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">
-                        <i class="fas fa-check-circle"></i> אישור הצעת מחיר סופית
+                        <i class="fas fa-check-circle"></i> אישור הצעת מחיר
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="finalizeQuoteForm">
-                        <input type="hidden" id="finalizeQuoteId">
+                    <form id="approveQuoteForm">
+                        <input type="hidden" id="approveQuoteId">
                         <div class="mb-3">
                             <label class="form-label">פרטי האירוע</label>
-                            <div id="quoteDetails" class="border p-3 rounded bg-light"></div>
+                            <div id="approveQuoteDetails" class="border p-3 rounded bg-light"></div>
                         </div>
                         <div class="mb-3">
                             <label for="finalPrice" class="form-label">מחיר סופי (₪) *</label>
                             <input type="number" class="form-control" id="finalPrice" step="0.01" min="0" required>
                         </div>
                         <div class="mb-3">
-                            <label for="requiredWorkersCount" class="form-label">מספר עובדים נדרש *</label>
-                            <input type="number" class="form-control" id="requiredWorkersCount" min="1" required>
+                            <label for="requestedWorkers" class="form-label">מספר עובדים נדרש *</label>
+                            <input type="number" class="form-control" id="requestedWorkers" min="0" required>
                             <small class="form-text text-muted">מספר העובדים שיקבלו הצעות עבודה</small>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">מספר נציגי רישום שהלקוח ביקש</label>
-                            <div id="requestedWorkersCount" class="form-control-plaintext fw-bold"></div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="finalNotes" class="form-label">הערות</label>
-                            <textarea class="form-control" id="finalNotes" rows="3"></textarea>
+                            <label for="adminNotes" class="form-label">הערות מנהל</label>
+                            <textarea class="form-control" id="adminNotes" rows="3"></textarea>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ביטול</button>
-                    <button type="button" class="btn btn-primary" id="saveFinalPriceBtn">
-                        <i class="fas fa-save"></i> שמור מחיר סופי
-                    </button>
-                    <button type="button" class="btn btn-success" id="sendToWorkersBtn">
-                        <i class="fas fa-paper-plane"></i> שלח לעובדים
+                    <button type="button" class="btn btn-primary" id="saveApproveBtn">
+                        <i class="fas fa-save"></i> אישר והגדר מחיר
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Create Worker Request Modal -->
-    <div class="modal fade" id="createWorkerRequestModal" tabindex="-1">
+    <!-- Reject Quote Modal -->
+    <div class="modal fade" id="rejectQuoteModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title">
-                        <i class="fas fa-users"></i> שליחת משימה לעובדים
+                        <i class="fas fa-times-circle"></i> דחיית הצעת מחיר
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="createWorkerRequestForm">
-                        <input type="hidden" id="workerRequestEventId">
+                    <form id="rejectQuoteForm">
+                        <input type="hidden" id="rejectQuoteId">
                         <div class="mb-3">
-                            <label for="requestedWorkers" class="form-label">מספר עובדים נדרש *</label>
-                            <input type="number" class="form-control" id="requestedWorkers" min="1" required>
-                            <small class="text-muted">מספר העובדים שהלקוח ביקש</small>
-                        </div>
-                        <div class="mb-3">
-                            <label for="radiusKm" class="form-label">רדיוס חיפוש (ק"מ)</label>
-                            <input type="number" class="form-control" id="radiusKm" step="0.1" min="0" value="50">
-                            <small class="text-muted">רדיוס חיפוש עובדים מהמיקום (ברירת מחדל: 50 ק"מ)</small>
+                            <label for="rejectReason" class="form-label">סיבת דחייה *</label>
+                            <textarea class="form-control" id="rejectReason" rows="4" required></textarea>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ביטול</button>
-                    <button type="button" class="btn btn-success" id="sendWorkerRequestBtn">
-                        <i class="fas fa-paper-plane"></i> שלח לעובדים
+                    <button type="button" class="btn btn-danger" id="saveRejectBtn">
+                        <i class="fas fa-times"></i> דחה
                     </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Worker Applications Modal -->
-    <div class="modal fade" id="workerApplicationsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-info text-white">
-                    <h5 class="modal-title">
-                        <i class="fas fa-user-check"></i> בקשות עובדים
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="applicationsLoading" class="text-center py-4">
-                        <div class="spinner-border text-info" role="status">
-                            <span class="visually-hidden">טוען...</span>
-                        </div>
-                    </div>
-                    <div id="applicationsList"></div>
-                    <div id="applicationsEmpty" class="text-center py-4 text-muted" style="display: none;">
-                        <i class="fas fa-inbox fa-3x mb-3"></i>
-                        <p>אין בקשות עובדים</p>
-                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/manager-dashboard.js"></script>
+    <script src="js/config.js?v=1.0.3"></script>
+    <script src="js/common.js?v=1.0.3"></script>
+    <script src="js/manager-dashboard.js?v=1.0.3"></script>
 </body>
 </html>
-
