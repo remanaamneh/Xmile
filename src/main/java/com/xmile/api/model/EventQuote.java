@@ -2,6 +2,7 @@ package com.xmile.api.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.Builder;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+
 @Builder
 public class EventQuote {
     @Id
@@ -51,6 +53,12 @@ public class EventQuote {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+    
+    @Column(name = "requested_workers", nullable = false)
+    @Builder.Default
+    private Integer requestedWorkers = 0;
+
+
 
     @PrePersist
     void onCreate() {

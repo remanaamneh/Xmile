@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin - Worker Applications</title>
+    <script src="common.js"></script>
+</head>
+<body>
+
+<h2>Worker Applications</h2>
+
+<input id="requestId" placeholder="Request ID" />
+<button onclick="load()">Load</button>
+
+<ul id="apps"></ul>
+
+<script>
+function load() {
+    const requestId = document.getElementById("requestId").value;
+
+    authFetch("/api/admin/worker-applications/request/" + requestId)
+        .then(res => res.json())
+        .then(data => {
+            const ul = document.getElementById("apps");
+            ul.innerHTML = "";
+
+            data.forEach(app => {
+                const li = document.createElement("li");
+                li.innerHTML =
+                    "Worker ID: " + app.user.id +
+                    " | Status: " + app.status +
+                    " <button onclick='approve(" + app.id + ")'>Approve</button>";
+                ul.appendChild(li);
+            });
+        });
+}
+
+function approve(appId) {
+    authFetch("/api/admin/worker-applications/" + appId + "/approve", {
+        method: "PUT"
+    }).then(() => alert("Approved"));
+}
+</script>
+
+</body>
+</html>

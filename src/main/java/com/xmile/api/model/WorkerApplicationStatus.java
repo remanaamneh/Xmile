@@ -5,7 +5,8 @@ public enum WorkerApplicationStatus {
     APPLIED,
     ACCEPTED,
     DECLINED,
-    CANCELLED
+    CANCELLED,
+    ASSIGNED
 }
 
 

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Worker Dashboard</title>
+    <script src="common.js"></script>
+</head>
+<body>
+
+<h2>My Applications</h2>
+<ul id="apps"></ul>
+
+<script>
+authFetch("/api/worker/applications/my")
+    .then(res => res.json())
+    .then(data => {
+        const ul = document.getElementById("apps");
+        data.forEach(app => {
+            const li = document.createElement("li");
+            li.innerText =
+                "Event ID: " + app.request.event.id +
+                " | Status: " + app.status;
+            ul.appendChild(li);
+        });
+    });
+</script>
+
+</body>
+</html>

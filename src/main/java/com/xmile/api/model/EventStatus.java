@@ -10,5 +10,3 @@ public enum EventStatus {
     COMPLETED,
     CANCELLED
 }
-
-
