@@ -4,6 +4,7 @@
  *********************************/
 // API_BASE is defined in config.js (loaded before this file)
 const QUOTES_URL = `${API_BASE}/quotes`;
+const CLIENT_QUOTE_REQUESTS_URL = `${API_BASE}/client/quote-requests`;
 
 /*********************************
  * UTILITIES
@@ -19,6 +20,19 @@ document.addEventListener("DOMContentLoaded", () => {
         alert("אנא התחבר תחילה");
         window.location.href = "/login.html";
         return;
+    }
+
+    // Get eventId from URL parameter and set it in the hidden field
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('eventId');
+    const eventIdField = document.getElementById('eventId');
+    if (eventIdField && eventId) {
+        eventIdField.value = eventId;
+        console.log("Event ID from URL:", eventId);
+    } else if (!eventId) {
+        console.warn("No eventId in URL. Quote creation requires an eventId.");
+        // You might want to redirect to event selection or show an error
+        // For now, we'll let the form submission handle the error
     }
 
     initializeTimeSelectors();
@@ -141,109 +155,151 @@ async function handleQuoteSubmit(e) {
         return;
     }
 
-    // Validate form - check HTML5 validation first
+    // Validate form - check HTML5 validation FIRST
     const form = document.getElementById('quoteForm');
     if (!form.checkValidity()) {
         form.reportValidity();
         return;
     }
     
-    // Get form values
-    const eventName = document.getElementById('eventName').value.trim();
+    // Get ALL form values BEFORE checking eventId (needed for event creation)
     const participantCountStr = document.getElementById('participantCount').value.trim();
-    const location = document.getElementById('eventLocation').value; // Don't trim here - allow any text including spaces
-    const eventDate = document.getElementById('eventDate').value;
-    const eventHour = document.getElementById('eventHour').value;
-    const eventMinute = document.getElementById('eventMinute').value;
+    const eventName = document.getElementById('eventName') ? document.getElementById('eventName').value.trim() : '';
+    const eventLocation = document.getElementById('eventLocation') ? document.getElementById('eventLocation').value.trim() : '';
+    const eventDate = document.getElementById('eventDate') ? document.getElementById('eventDate').value : '';
+    const eventHour = document.getElementById('eventHour') ? document.getElementById('eventHour').value : '';
+    const eventMinute = document.getElementById('eventMinute') ? document.getElementById('eventMinute').value : '';
+    
+    // Get eventId from URL parameter or hidden field
+    const urlParams = new URLSearchParams(window.location.search);
+    let eventId = urlParams.get('eventId');
+    if (!eventId) {
+        const eventIdField = document.getElementById('eventId');
+        eventId = eventIdField ? eventIdField.value : null;
+    }
+    
+    // Parse eventId to number
+    let eventIdNum = null;
+    if (eventId) {
+        eventIdNum = Number(eventId);
+        if (isNaN(eventIdNum) || eventIdNum <= 0) {
+            console.warn("Invalid eventId, ignoring it:", eventId);
+            eventIdNum = null;
+        }
+    }
+    
+    // If eventId is missing, try to create a new event first
+    if (!eventIdNum) {
+        console.log("No eventId found. Attempting to create a new event first...");
+        
+        // Validate required event fields
+        if (!eventName || !eventLocation || !eventDate || !eventHour || !eventMinute) {
+            alert("שגיאה: כדי ליצור אירוע חדש, נדרש למלא את כל השדות הבאים:\n" +
+                  "- שם האירוע\n" +
+                  "- מיקום האירוע\n" +
+                  "- תאריך האירוע\n" +
+                  "- שעת התחלה\n\n" +
+                  "או חזור לדשבורד ובחר אירוע קיים.");
+            return;
+        }
+        
+        // Validate participantCount for event creation
+        if (!participantCountStr || participantCountStr.length === 0) {
+            alert("שגיאה: מספר משתתפים הוא שדה חובה ליצירת אירוע.");
+            return;
+        }
+        
+        const participantCountForEvent = Number(participantCountStr);
+        if (isNaN(participantCountForEvent) || participantCountForEvent < 1) {
+            alert("שגיאה: מספר משתתפים חייב להיות מספר חיובי (לפחות 1).");
+            return;
+        }
+        
+        // Create event first
+        try {
+            const eventData = {
+                name: eventName,
+                location: eventLocation,
+                eventDate: eventDate,
+                startTime: `${eventHour}:${eventMinute}:00`,
+                participantCount: participantCountForEvent
+            };
+            
+            console.log("Creating new event:", eventData);
+            
+            const eventRes = await fetch(`${API_BASE}/events`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(eventData)
+            });
+            
+            if (!eventRes.ok) {
+                const errorJson = await eventRes.json().catch(() => ({}));
+                throw new Error(errorJson.message || errorJson.error || "שגיאה ביצירת אירוע חדש");
+            }
+            
+            const newEvent = await eventRes.json();
+            eventIdNum = newEvent.id;
+            console.log("Event created successfully. New eventId:", eventIdNum);
+            
+        } catch (err) {
+            console.error("Error creating event:", err);
+            alert("שגיאה ביצירת אירוע חדש:\n" + err.message + "\n\nאנא נסה שוב או חזור לדשבורד ובחר אירוע קיים.");
+            return;
+        }
+    }
+    
+    console.log("EventId validated:", eventIdNum);
+    
+    // Get remaining form values (participantCountStr already read above)
+    const notes = document.getElementById('eventNotes') ? (document.getElementById('eventNotes').value || '').trim() : '';
     const hasProductionCompany = document.querySelector('input[name="hasProductionCompany"]:checked');
-    const productionCompanyId = document.getElementById('productionCompany').value || null;
-    const notes = document.getElementById('eventNotes').value; // Don't trim - allow any text
-
-    // Only participant count is required
-    const errors = [];
+    const productionCompanyIdStr = document.getElementById('productionCompany') ? document.getElementById('productionCompany').value : null;
     
+    // Get requestedWorkers (default to 0)
+    const requestedWorkersStr = document.getElementById('requestedWorkers') ? document.getElementById('requestedWorkers').value.trim() : '0';
+
+    // Validate participantCount (if not already validated during event creation)
     if (!participantCountStr || participantCountStr.length === 0) {
-        errors.push("מספר משתתפים (חובה)");
-    } else {
-        const participantCount = parseInt(participantCountStr);
-        if (isNaN(participantCount) || participantCount < 1) {
-            errors.push("מספר משתתפים (חייב להיות מספר חיובי)");
-        }
-    }
-    
-    if (errors.length > 0) {
-        alert("אנא מלא את השדות הבאים:\n" + errors.join("\n"));
+        alert("שגיאה: מספר משתתפים הוא שדה חובה.");
         return;
     }
     
-    // Parse participant count after validation
-    const participantCount = parseInt(participantCountStr);
-    
-    // Location can be any text, trim if provided
-    const locationTrimmed = location ? location.trim() : '';
-    
-    // If date or time are provided, validate them
-    if (eventDate && eventDate.length > 0 && !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
-        alert("תאריך לא תקין. אנא בחר תאריך תקין או השאר ריק");
+    const participantCount = Number(participantCountStr);
+    if (isNaN(participantCount) || participantCount < 1) {
+        alert("שגיאה: מספר משתתפים חייב להיות מספר חיובי (לפחות 1).");
         return;
     }
     
-    // Format time if provided (HH:mm:ss)
-    let formattedTime = null;
+    // Parse numbers with defensive parsing (participantCount already validated above)
+    const requestedWorkers = Number(requestedWorkersStr) || 0;
     
-    // Check if time is provided - both hour and minute must be selected or both empty
-    const hasHour = eventHour && eventHour.length > 0 && eventHour !== '' && eventHour !== 'שעה';
-    const hasMinute = eventMinute && eventMinute.length > 0 && eventMinute !== '' && eventMinute !== 'דקות';
-    
-    if (hasHour || hasMinute) {
-        // If one is provided, both must be provided
-        if (!hasHour || !hasMinute) {
-            alert("אנא בחר גם שעה וגם דקות, או השאר את שני השדות ריקים");
-            return;
+    // Parse productionCompanyId only if user selected "no" (wants company suggestions)
+    // If user selected "yes" (has their own company), don't send productionCompanyId
+    let productionCompanyId = null;
+    if (hasProductionCompany && hasProductionCompany.value === 'no' && productionCompanyIdStr) {
+        const parsedId = Number(productionCompanyIdStr);
+        if (!isNaN(parsedId) && parsedId > 0) {
+            productionCompanyId = parsedId;
         }
-        
-        // Validate hour and minute are numbers
-        const hourNum = parseInt(eventHour);
-        const minuteNum = parseInt(eventMinute);
-        
-        if (isNaN(hourNum) || hourNum < 0 || hourNum > 23) {
-            alert("שעה לא תקינה. אנא בחר שעה בין 00 ל-23");
-            return;
-        }
-        if (isNaN(minuteNum) || minuteNum < 0 || minuteNum > 59) {
-            alert("דקות לא תקינות. אנא בחר דקות בין 00 ל-59");
-            return;
-        }
-        
-        // Format as HH:mm:ss (hour:minute:second)
-        formattedTime = `${String(hourNum).padStart(2, '0')}:${String(minuteNum).padStart(2, '0')}:00`;
-        console.log("Time formatted:", formattedTime, "from hour:", eventHour, "minute:", eventMinute);
     }
-
+    
+    // Build request payload with ONLY the required fields
+    // eventIdNum is already validated above
     const quoteData = {
-        eventName: eventName && eventName.trim().length > 0 ? eventName.trim() : null,
+        eventId: eventIdNum,
         participantCount: participantCount,
-        location: locationTrimmed.length > 0 ? locationTrimmed : null,
-        eventDate: eventDate && eventDate.length > 0 ? eventDate : null,
-        startTime: formattedTime,
-        // אם יש לו חברת הפקה (yes) - לא שולחים productionCompanyId (null)
-        // אם אין לו (no) - שולחים את הבחירה האופציונלית
-        productionCompanyId: hasProductionCompany && hasProductionCompany.value === 'no' && productionCompanyId ? parseInt(productionCompanyId) : null,
-        notes: notes && notes.trim().length > 0 ? notes.trim() : null // Only send notes if not empty
+        requestedWorkers: requestedWorkers,
+        notes: notes.length > 0 ? notes : null,
+        productionCompanyId: productionCompanyId
     };
     
     console.log("=== QUOTE REQUEST DATA ===");
-    console.log("Form values:");
-    console.log("  eventName:", eventName);
-    console.log("  participantCount:", participantCount, "(type:", typeof participantCount, ")");
-    console.log("  location:", location);
-    console.log("  eventDate:", eventDate);
-    console.log("  eventHour:", eventHour);
-    console.log("  eventMinute:", eventMinute);
-    console.log("  formattedTime:", formattedTime);
-    console.log("  hasProductionCompany:", hasProductionCompany ? hasProductionCompany.value : "NOT SELECTED");
-    console.log("  productionCompanyId:", productionCompanyId);
-    console.log("Sending quote request:", JSON.stringify(quoteData, null, 2));
+    console.log("Sending to POST /quotes:");
+    console.log(JSON.stringify(quoteData, null, 2));
     console.log("=== END QUOTE REQUEST DATA ===");
 
     // Show loading
@@ -253,6 +309,7 @@ async function handleQuoteSubmit(e) {
     }
 
     try {
+        // Send to POST /quotes endpoint
         const res = await fetch(QUOTES_URL, {
             method: 'POST',
             headers: {
@@ -334,8 +391,11 @@ async function handleQuoteSubmit(e) {
             loadingOverlay.style.display = 'none';
         }
 
-        // Display quote in modal
-        displayQuoteInModal(quote);
+        // Store quote in sessionStorage and navigate to quote result page
+        sessionStorage.setItem('lastQuote', JSON.stringify(quote));
+        
+        // Navigate to quote result page where user can approve and send to manager
+        window.location.href = '/quote-result.html';
         
     } catch (err) {
         // Hide loading
@@ -424,16 +484,16 @@ function displayQuoteInModal(quote) {
                     </span>
                 </div>
             ` : ''}
-            ${breakdown.pricePerParticipant ? `
+            ${breakdown.pricePerParticipant || (quote.quoteAmount && quote.participantCount) ? `
                 <div class="quote-detail-row">
                     <span class="quote-detail-label">מחיר למשתתף:</span>
-                    <span class="quote-detail-value">₪${breakdown.pricePerParticipant}</span>
+                    <span class="quote-detail-value">₪${breakdown.pricePerParticipant || (quote.quoteAmount && quote.participantCount ? (quote.quoteAmount / quote.participantCount).toFixed(2) : '0')}</span>
                 </div>
             ` : ''}
-            ${breakdown.basePrice ? `
+            ${breakdown.basePrice || quote.quoteAmount ? `
                 <div class="quote-detail-row">
                     <span class="quote-detail-label">מחיר בסיס (${quote.participantCount || 0} משתתפים):</span>
-                    <span class="quote-detail-value">₪${breakdown.basePrice}</span>
+                    <span class="quote-detail-value">₪${breakdown.basePrice || quote.quoteAmount || 0}</span>
                 </div>
             ` : ''}
             ${breakdown.commission ? `
@@ -444,7 +504,7 @@ function displayQuoteInModal(quote) {
             ` : ''}
             <div class="quote-price-section">
                 <div class="quote-price-label">${isEstimate ? 'הערכת מחיר כוללת' : 'מחיר סופי'}</div>
-                <div class="quote-price-amount">₪${quote.totalPrice || quote.price || 0}</div>
+                <div class="quote-price-amount">₪${quote.totalPrice || quote.price || quote.quoteAmount || 0}</div>
                 ${isEstimate ? '<div class="quote-price-note">(הערכה בלבד - המחיר הסופי ייקבע לאחר אישור החברה)</div>' : ''}
             </div>
         </div>
@@ -466,6 +526,8 @@ function displayQuoteInModal(quote) {
             modal.hide();
             // Redirect to approval page or open representatives modal
             sessionStorage.setItem('lastQuote', JSON.stringify(quote));
+            // Add flag to refresh events when returning to dashboard
+            sessionStorage.setItem('refreshEvents', 'true');
             window.location.href = '/quote-result.html';
         };
     }

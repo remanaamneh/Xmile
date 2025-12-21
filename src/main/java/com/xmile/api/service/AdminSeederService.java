@@ -26,20 +26,29 @@ public class AdminSeederService implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (userRepository.findByEmail(adminEmail).isEmpty()) {
-            User admin = User.builder()
-                    .name("Admin")
-                    .email(adminEmail)
-                    .passwordHash(passwordEncoder.encode(adminPassword))
-                    .role(Role.ADMIN)
-                    .isActive(true)
-                    .build();
+        userRepository.findByEmail(adminEmail).ifPresentOrElse(
+            existingUser -> {
+                // Update existing admin user to ensure correct password and role
+                existingUser.setPasswordHash(passwordEncoder.encode(adminPassword));
+                existingUser.setRole(Role.ADMIN);
+                existingUser.setIsActive(true);
+                userRepository.save(existingUser);
+                log.info("Admin user updated with email: {} and new password", adminEmail);
+            },
+            () -> {
+                // Create new admin user
+                User admin = User.builder()
+                        .name("Admin")
+                        .email(adminEmail)
+                        .passwordHash(passwordEncoder.encode(adminPassword))
+                        .role(Role.ADMIN)
+                        .isActive(true)
+                        .build();
 
-            userRepository.save(admin);
-            log.info("Admin user created with email: {}", adminEmail);
-        } else {
-            log.info("Admin user already exists with email: {}", adminEmail);
-        }
+                userRepository.save(admin);
+                log.info("Admin user created with email: {}", adminEmail);
+            }
+        );
     }
 }
 

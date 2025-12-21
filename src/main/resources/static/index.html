@@ -1,11 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event Planner Hub</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="style.css" rel="stylesheet">
+    <meta http-equiv="refresh" content="0; url=/select-role.html">
+    <title>Xmile - בית של פתרונות רישום</title>
+    <script>
+        // Immediate redirect to avoid showing the page
+        window.location.replace('/select-role.html');
+    </script>
 </head>
 <body>
     <div class="background-overlay"></div>
@@ -176,19 +179,11 @@
     </div>
 </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/app.js"></script>
-    <script>
-        // Redirect to role selection page if accessing root
-        if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
-            // Only redirect if not already on a specific page
-            const currentPath = window.location.pathname;
-            if (currentPath === '/' || currentPath === '/index.html') {
-                window.location.href = '/select-role.html';
-            }
-        }
-    </script>
+    <!-- Fallback redirect in case JavaScript is disabled -->
+    <noscript>
+        <meta http-equiv="refresh" content="0; url=/select-role.html">
+    </noscript>
+    <p>אם הדף לא מתעדכן אוטומטית, <a href="/select-role.html">לחץ כאן</a>.</p>
 </body>
 </html>
 

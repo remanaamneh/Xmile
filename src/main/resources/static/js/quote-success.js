@@ -59,6 +59,10 @@ function displaySuccessDetails(approvedQuote) {
  *********************************/
 function goToDashboard() {
     sessionStorage.removeItem('approvedQuote');
+    // Add a flag to refresh events when dashboard loads
+    sessionStorage.setItem('refreshEvents', 'true');
+    // Also store a flag to indicate we just approved a quote
+    sessionStorage.setItem('justApprovedQuote', 'true');
     window.location.href = '/client-dashboard.html';
 }
 

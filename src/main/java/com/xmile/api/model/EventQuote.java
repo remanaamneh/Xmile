@@ -38,12 +38,15 @@ public class EventQuote {
     private BigDecimal xmileCommissionPercent;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 32, columnDefinition = "VARCHAR(32)")
     @Builder.Default
-    private EventQuoteStatus status = EventQuoteStatus.submitted;
+    private EventQuoteStatus status = EventQuoteStatus.SUBMITTED;
 
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    @Column(name = "admin_rejection_reason", columnDefinition = "TEXT")
+    private String adminRejectionReason;
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
@@ -66,7 +69,7 @@ public class EventQuote {
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
         // Don't override status if it's already set
-        if (status == null) status = EventQuoteStatus.submitted;
+        if (status == null) status = EventQuoteStatus.SUBMITTED;
         if (currency == null) currency = "ILS";
         if (xmileCommissionPercent == null) xmileCommissionPercent = BigDecimal.ZERO;
     }

@@ -37,9 +37,19 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", ex.getMessage());
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        Map<String, Object> error = new HashMap<>();
+        String message = ex.getMessage();
+        
+        // Handle enum constant errors more gracefully
+        if (message != null && message.contains("No enum constant")) {
+            error.put("error", "Invalid enum value");
+            error.put("message", "שגיאה בערך enum. אנא בדוק את הנתונים שנשלחו.");
+            System.err.println("Enum error: " + message);
+        } else {
+            error.put("error", message != null ? message : "Invalid argument");
+            error.put("message", message != null ? message : "שגיאה בנתונים");
+        }
         return ResponseEntity.badRequest().body(error);
     }
 
@@ -58,10 +68,125 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<Map<String, String>> handleDataIntegrity(DataIntegrityViolationException ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", "Data integrity violation");
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        Map<String, Object> error = new HashMap<>();
+        String message = ex.getMessage();
+        
+        // Log the full exception for debugging
+        System.err.println("=== DATA INTEGRITY VIOLATION ===");
+        System.err.println("Exception Type: " + ex.getClass().getName());
+        System.err.println("Exception Message: " + message);
+        if (ex.getCause() != null) {
+            System.err.println("Cause: " + ex.getCause().getClass().getName() + " - " + ex.getCause().getMessage());
+        }
+        ex.printStackTrace(System.err);
+        System.err.println("=== END ===");
+        
+        // Check for specific error patterns
+        if (message != null) {
+            if (message.contains("Data truncated for column")) {
+                error.put("error", "Invalid data value");
+                error.put("message", "הערך שנשלח לא תקין. ייתכן שהערך חורג מהגבולות המותרים או שהפורמט לא נכון.");
+                error.put("details", message);
+            } else if (message.contains("Duplicate entry")) {
+                error.put("error", "Duplicate entry");
+                error.put("message", "הרשומה כבר קיימת במערכת.");
+            } else if (message.contains("foreign key constraint")) {
+                error.put("error", "Foreign key constraint violation");
+                error.put("message", "לא ניתן למחוק או לעדכן את הרשומה מכיוון שהיא קשורה לרשומות אחרות.");
+            } else {
+                error.put("error", "Data integrity violation");
+                error.put("message", "שגיאה בשלמות הנתונים: " + message);
+            }
+        } else {
+            error.put("error", "Data integrity violation");
+            error.put("message", "שגיאה בשלמות הנתונים");
+        }
+        
+        error.put("type", ex.getClass().getSimpleName());
         return ResponseEntity.badRequest().body(error);
+    }
+    
+    @ExceptionHandler(java.sql.SQLException.class)
+    public ResponseEntity<Map<String, Object>> handleSQLException(java.sql.SQLException ex) {
+        Map<String, Object> error = new HashMap<>();
+        String message = ex.getMessage();
+        
+        // Log the full exception for debugging
+        System.err.println("=== SQL EXCEPTION ===");
+        System.err.println("Exception Type: " + ex.getClass().getName());
+        System.err.println("SQL State: " + ex.getSQLState());
+        System.err.println("Error Code: " + ex.getErrorCode());
+        System.err.println("Exception Message: " + message);
+        ex.printStackTrace(System.err);
+        System.err.println("=== END ===");
+        
+        // Check for specific SQL error patterns
+        if (message != null) {
+            if (message.contains("Data truncated for column")) {
+                error.put("error", "Invalid data value");
+                error.put("message", "הערך שנשלח לא תקין. ייתכן שהערך חורג מהגבולות המותרים או שהפורמט לא נכון.");
+                error.put("details", message);
+            } else if (message.contains("Duplicate entry")) {
+                error.put("error", "Duplicate entry");
+                error.put("message", "הרשומה כבר קיימת במערכת.");
+            } else {
+                error.put("error", "Database error");
+                error.put("message", "שגיאה בבסיס הנתונים: " + message);
+            }
+        } else {
+            error.put("error", "Database error");
+            error.put("message", "שגיאה בבסיס הנתונים");
+        }
+        
+        error.put("type", ex.getClass().getSimpleName());
+        error.put("sqlState", ex.getSQLState());
+        error.put("errorCode", ex.getErrorCode());
+        return ResponseEntity.badRequest().body(error);
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
+        Map<String, Object> error = new HashMap<>();
+        String message = ex.getMessage();
+        error.put("error", "Runtime error");
+        error.put("message", message != null ? message : "שגיאה בלתי צפויה");
+        error.put("type", ex.getClass().getSimpleName());
+        
+        // Log full stack trace for debugging
+        System.err.println("=== RUNTIME EXCEPTION ===");
+        System.err.println("Message: " + message);
+        System.err.println("Type: " + ex.getClass().getName());
+        ex.printStackTrace(System.err);
+        System.err.println("=== END RUNTIME EXCEPTION ===");
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        Map<String, Object> error = new HashMap<>();
+        String path = ex.getResourcePath();
+        
+        // If it's an API path (/client/** or /admin/**), it should be handled by controllers
+        // This means the controller might not be found or there's a routing issue
+        if (path != null && (path.startsWith("/client/") || path.startsWith("/admin/"))) {
+            error.put("error", "API endpoint not found");
+            error.put("message", "הנקודת קצה לא נמצאה. אנא ודא שהשרת רץ עם כל ה-controllers.");
+            error.put("path", path);
+            error.put("type", "NoResourceFoundException");
+            System.err.println("=== API ENDPOINT NOT FOUND ===");
+            System.err.println("Path: " + path);
+            System.err.println("This should be handled by a controller, not static resource handler");
+            System.err.println("=== END ===");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+        }
+        
+        // For other static resources, return 404
+        error.put("error", "Resource not found");
+        error.put("message", "המשאב המבוקש לא נמצא");
+        error.put("path", path);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
     @ExceptionHandler(Exception.class)

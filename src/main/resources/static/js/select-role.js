@@ -43,7 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const roleMap = {
             'ADMIN': 0,
             'CLIENT': 1,
-            'EMPLOYEE': 2
+            'WORKER': 2,
+            'EMPLOYEE': 2 // Legacy support
         };
         const cards = document.querySelectorAll('.role-card');
         if (roleMap[role] !== undefined && cards[roleMap[role]]) {

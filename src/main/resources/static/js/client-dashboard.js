@@ -6,6 +6,7 @@
 const EVENTS_URL = `${API_BASE}/events`;
 const QUOTES_URL = `${API_BASE}/quotes`;
 const MESSAGES_URL = `${API_BASE}/messages`;
+const CLIENT_QUOTE_REQUESTS_URL = `${API_BASE}/client/quote-requests`;
 
 /*********************************
  * UTILITIES
@@ -24,6 +25,11 @@ const formatTime = (timeString) => {
     return timeString.substring(0, 5);
 };
 
+const formatPrice = (price) => {
+    if (!price) return '0';
+    return parseFloat(price).toLocaleString('he-IL');
+};
+
 /*********************************
  * INIT (DOM READY)
  *********************************/
@@ -35,7 +41,37 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     loadUserInfo();
-    fetchEvents();
+    
+    // Check if we need to refresh events (e.g., after approving a quote)
+    const shouldRefresh = sessionStorage.getItem('refreshEvents');
+    const justApproved = sessionStorage.getItem('justApprovedQuote');
+    
+    console.log("=== DASHBOARD INIT ===");
+    console.log("shouldRefresh:", shouldRefresh);
+    console.log("justApproved:", justApproved);
+    
+    if (shouldRefresh === 'true' || justApproved === 'true') {
+        sessionStorage.removeItem('refreshEvents');
+        sessionStorage.removeItem('justApprovedQuote');
+        console.log("Will refresh events after delay");
+        // Small delay to ensure page is fully loaded, then refresh
+        setTimeout(() => {
+            console.log("Fetching events after approval...");
+            fetchEvents();
+            // Also switch to "pending" filter to show the newly approved quote
+            if (justApproved === 'true') {
+                setTimeout(() => {
+                    console.log("Switching to pending filter...");
+                    filterEvents('pending');
+                }, 1500);
+            }
+        }, 500);
+    } else {
+        fetchEvents();
+    }
+    
+    console.log("=== END DASHBOARD INIT ===");
+    
     loadProductionCompanies();
     
     // Setup quote form
@@ -72,6 +108,62 @@ function logout() {
     window.location.href = "/select-role.html";
 }
 
+async function sendToManager(quoteId) {
+    if (!confirm('האם אתה בטוח שברצונך לשלוח את הבקשה למנהל לאישור?')) {
+        return;
+    }
+    
+    const token = getToken();
+    if (!token) {
+        alert('אנא התחבר תחילה');
+        window.location.href = '/login.html';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${CLIENT_QUOTE_REQUESTS_URL}/${quoteId}/send`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: 'שגיאה בשליחת הבקשה' }));
+            throw new Error(error.message || 'שגיאה בשליחת הבקשה');
+        }
+        
+        const updatedQuote = await response.json();
+        console.log('=== QUOTE SENT TO MANAGER ===');
+        console.log('Updated quote:', updatedQuote);
+        console.log('Quote status:', updatedQuote.status);
+        console.log('=== END ===');
+        
+        // Show success message
+        alert('הבקשה נשלחה למנהל בהצלחה!');
+        
+        // Clear current quotes and events to force refresh
+        currentQuotes = [];
+        currentEvents = [];
+        
+        // Refresh events list - this will fetch fresh data from server
+        await fetchEvents();
+        
+        // Wait a bit for the data to be processed, then switch to pending filter
+        setTimeout(() => {
+            console.log("Switching to pending filter after send");
+            console.log("Current quotes after fetch:", currentQuotes.length);
+            console.log("Current quotes statuses:", currentQuotes.map(q => ({ id: q.id, status: q.status })));
+            filterEvents('pending');
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Error sending quote to manager:', error);
+        alert('שגיאה בשליחת הבקשה: ' + error.message);
+    }
+}
+
 async function loadUserInfo() {
     const token = getToken();
     if (!token) return;
@@ -91,6 +183,7 @@ async function loadUserInfo() {
  * EVENTS
  *********************************/
 let currentEvents = [];
+let currentQuotes = [];
 let currentFilter = 'all';
 
 async function fetchEvents() {
@@ -116,35 +209,57 @@ async function fetchEvents() {
     `;
 
     try {
-        const res = await fetch(EVENTS_URL, {
-            headers: {
-                "Authorization": "Bearer " + token,
-                "Content-Type": "application/json"
-            }
-        });
+        // Fetch both events and quote requests in parallel
+        const [eventsRes, quotesRes] = await Promise.all([
+            fetch(EVENTS_URL, {
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "Content-Type": "application/json"
+                }
+            }),
+            fetch(CLIENT_QUOTE_REQUESTS_URL, {
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "Content-Type": "application/json"
+                }
+            })
+        ]);
 
-        if (res.status === 401) {
+        if (eventsRes.status === 401 || quotesRes.status === 401) {
             alert("פג תוקף ההתחברות. אנא התחבר שוב.");
             logout();
             return;
         }
 
-        if (!res.ok) {
-            let errorText = "שגיאה בטעינת אירועים";
-            try {
-                const errorJson = await res.json();
-                errorText = errorJson.message || errorJson.error || errorText;
-            } catch (e) {
-                const text = await res.text();
-                if (text) errorText = text;
-            }
-            throw new Error(errorText);
+        // Parse events
+        let eventsData = [];
+        if (eventsRes.ok) {
+            eventsData = await eventsRes.json();
         }
-
-        const eventsData = await res.json();
         currentEvents = Array.isArray(eventsData) ? eventsData : [];
+
+        // Parse quotes
+        let quotesData = [];
+        if (quotesRes.ok) {
+            quotesData = await quotesRes.json();
+        }
+        currentQuotes = Array.isArray(quotesData) ? quotesData : [];
         
-        if (currentEvents.length === 0) {
+        // Debug: Log quotes to console
+        console.log("=== FETCHED QUOTES ===");
+        console.log("Number of quotes:", currentQuotes.length);
+        console.log("All quotes with status:", currentQuotes.map(q => ({ 
+            id: q.id, 
+            status: q.status, 
+            eventName: q.eventName || 'ללא שם',
+            participantCount: q.participantCount 
+        })));
+        if (currentQuotes.length > 0) {
+            console.log("First quote full data:", JSON.stringify(currentQuotes[0], null, 2));
+        }
+        console.log("=== END FETCHED QUOTES ===");
+        
+        if (currentEvents.length === 0 && currentQuotes.length === 0) {
             eventsListEl.innerHTML = `
                 <div class="text-center py-5">
                     <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
@@ -194,17 +309,113 @@ function renderEvents() {
     const eventsList = document.getElementById("eventsList");
     if (!eventsList) return;
 
-    let filteredEvents = currentEvents || [];
+    let filteredEvents = [...currentEvents] || [];
+    let filteredQuotes = [];
 
+    // Filter based on current filter
     if (currentFilter === 'pending') {
-        filteredEvents = currentEvents.filter(e => e.status === 'PENDING_APPROVAL' || e.status === 'QUOTE_PENDING' || e.status === 'submitted');
+        // Show events with pending status AND quotes with submitted/pending_approval status
+        filteredEvents = currentEvents.filter(e => 
+            e.status === 'PENDING_APPROVAL' || 
+            e.status === 'QUOTE_PENDING'
+        );
+        
+        // Debug: Log filtering
+        console.log("=== FILTERING QUOTES FOR PENDING ===");
+        console.log("Total quotes:", currentQuotes.length);
+        console.log("All quote statuses:", currentQuotes.map(q => q.status));
+        
+        filteredQuotes = currentQuotes.filter(q => {
+            const status = q.status;
+            // Include all pending-related statuses
+            const matches = status === 'submitted' || 
+                           status === 'SUBMITTED' ||
+                           status === 'pending_approval' ||
+                           status === 'PENDING_APPROVAL' ||
+                           status === 'SENT_TO_MANAGER' ||
+                           status === 'MANAGER_REVIEW' ||
+                           status === 'DRAFT'; // DRAFT quotes can be sent, so show them in pending
+            if (matches) {
+                console.log("Quote matches pending filter:", q.id, "status:", status, "eventName:", q.eventName);
+            }
+            return matches;
+        });
+        
+        console.log("Filtered quotes count:", filteredQuotes.length);
+        console.log("Filtered quotes:", filteredQuotes.map(q => ({ id: q.id, status: q.status, eventName: q.eventName })));
+        console.log("=== END FILTERING ===");
     } else if (currentFilter === 'approved') {
-        filteredEvents = currentEvents.filter(e => e.status === 'APPROVED' || e.status === 'CONFIRMED');
+        filteredEvents = currentEvents.filter(e => 
+            e.status === 'APPROVED' || 
+            e.status === 'CONFIRMED'
+        );
+        filteredQuotes = currentQuotes.filter(q => {
+            const status = q.status;
+            // Include all approved-related statuses
+            return status === 'approved' || 
+                   status === 'APPROVED';
+        });
+        console.log("=== FILTERING QUOTES FOR APPROVED ===");
+        console.log("Total quotes:", currentQuotes.length);
+        console.log("Filtered quotes count:", filteredQuotes.length);
+        console.log("Filtered quotes:", filteredQuotes.map(q => ({ id: q.id, status: q.status })));
+        console.log("=== END FILTERING ===");
     } else if (currentFilter === 'completed') {
         filteredEvents = currentEvents.filter(e => e.status === 'COMPLETED');
+        filteredQuotes = currentQuotes.filter(q => {
+            const status = q.status;
+            // Include all completed/rejected/closed statuses
+            return status === 'completed' || 
+                   status === 'COMPLETED' ||
+                   status === 'cancelled' ||
+                   status === 'CANCELLED' ||
+                   status === 'REJECTED' ||
+                   status === 'rejected' ||
+                   status === 'CLOSED' ||
+                   status === 'closed';
+        });
+        console.log("=== FILTERING QUOTES FOR COMPLETED ===");
+        console.log("Total quotes:", currentQuotes.length);
+        console.log("Filtered quotes count:", filteredQuotes.length);
+        console.log("=== END FILTERING ===");
+    } else {
+        // Show all - include all quotes and events
+        filteredQuotes = [...currentQuotes];
+        console.log("=== SHOWING ALL QUOTES ===");
+        console.log("Total quotes:", currentQuotes.length);
+        console.log("All quote statuses:", currentQuotes.map(q => ({ id: q.id, status: q.status, eventName: q.eventName })));
+        console.log("=== END ===");
     }
 
-    if (!filteredEvents || filteredEvents.length === 0) {
+    // Combine events and quotes for display
+    const allItems = [];
+    
+    // Add events
+    filteredEvents.forEach(event => {
+        allItems.push({
+            type: 'event',
+            data: event
+        });
+    });
+    
+    // Add quotes (for all filters)
+    filteredQuotes.forEach(quote => {
+        console.log("Adding quote to display:", quote.id, "status:", quote.status);
+        allItems.push({
+            type: 'quote',
+            data: quote
+        });
+    });
+    
+    console.log("=== RENDERING ===");
+    console.log("Current filter:", currentFilter);
+    console.log("Total items to render:", allItems.length);
+    console.log("Events:", filteredEvents.length);
+    console.log("Quotes:", filteredQuotes.length);
+    console.log("Filtered quotes:", filteredQuotes.map(q => ({ id: q.id, status: q.status })));
+    console.log("=== END RENDERING ===");
+
+    if (allItems.length === 0) {
         eventsList.innerHTML = `
             <div class="text-center py-5">
                 <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
@@ -215,42 +426,149 @@ function renderEvents() {
         return;
     }
 
-    eventsList.innerHTML = filteredEvents.map(event => `
-        <div class="event-card">
-            <div class="event-header">
-                <div class="event-name">${event.name || "ללא שם"}</div>
-                <span class="event-status ${getStatusClass(event.status)}">${getStatusText(event.status)}</span>
-            </div>
-            <div class="event-details">
-                <div class="event-detail">
-                    <i class="fas fa-calendar"></i>
-                    <span>${formatDate(event.eventDate)}</span>
+    eventsList.innerHTML = allItems.map(item => {
+        if (item.type === 'quote') {
+            const quote = item.data;
+            const status = quote.status || '';
+            const isDraft = status === 'DRAFT' || status === 'draft';
+            const isPending = status === 'SENT_TO_MANAGER' || 
+                            status === 'MANAGER_REVIEW' || 
+                            status === 'pending_approval' || 
+                            status === 'PENDING_APPROVAL' ||
+                            status === 'submitted' ||
+                            status === 'SUBMITTED';
+            const isApproved = status === 'APPROVED' || status === 'approved';
+            const isRejected = status === 'REJECTED' || status === 'rejected';
+            
+            let statusText = 'טיוטה';
+            let statusClass = 'status-draft';
+            if (isPending) {
+                statusText = 'ממתין לאישור מנהל';
+                statusClass = 'status-pending';
+            } else if (isApproved) {
+                statusText = 'אושר';
+                statusClass = 'status-approved';
+            } else if (isRejected) {
+                statusText = 'נדחה';
+                statusClass = 'status-rejected';
+            }
+            
+            return `
+                <div class="event-card">
+                    <div class="event-header">
+                        <div class="event-name">${quote.eventName || "ללא שם"}</div>
+                        <span class="event-status ${statusClass}">
+                            <i class="fas fa-${isDraft ? 'edit' : isPending ? 'clock' : isApproved ? 'check' : 'times'}"></i> ${statusText}
+                        </span>
+                    </div>
+                    <div class="event-details">
+                        ${quote.eventDate ? `
+                            <div class="event-detail">
+                                <i class="fas fa-calendar"></i>
+                                <span>${formatDate(quote.eventDate)}</span>
+                            </div>
+                        ` : ''}
+                        ${quote.startTime ? `
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>${formatTime(quote.startTime)}</span>
+                            </div>
+                        ` : ''}
+                        ${quote.location ? `
+                            <div class="event-detail">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>${quote.location}</span>
+                            </div>
+                        ` : ''}
+                        ${quote.participantCount ? `
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>${quote.participantCount} משתתפים</span>
+                            </div>
+                        ` : ''}
+                        ${quote.quoteAmount || quote.price ? `
+                            <div class="event-detail">
+                                <i class="fas fa-shekel-sign"></i>
+                                <span>${formatPrice(quote.quoteAmount || quote.price)} ₪</span>
+                            </div>
+                        ` : ''}
+                        ${quote.requestedWorkers ? `
+                            <div class="event-detail">
+                                <i class="fas fa-user-tie"></i>
+                                <span>${quote.requestedWorkers} נציגי רישום</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="event-actions">
+                        ${isDraft ? `
+                            <button class="btn-event-action btn-primary-action" onclick="sendToManager(${quote.id})">
+                                <i class="fas fa-paper-plane"></i> שלח למנהל
+                            </button>
+                        ` : isPending ? `
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                הבקשה נשלחה למנהל החברה לאישור
+                            </small>
+                        ` : isApproved ? `
+                            <small class="text-success">
+                                <i class="fas fa-check-circle"></i>
+                                הבקשה אושרה על ידי המנהל
+                            </small>
+                        ` : isRejected ? `
+                            <small class="text-danger">
+                                <i class="fas fa-times-circle"></i>
+                                הבקשה נדחתה: ${quote.rejectReason || quote.adminNote || 'ללא סיבה'}
+                            </small>
+                        ` : ''}
+                    </div>
                 </div>
-                <div class="event-detail">
-                    <i class="fas fa-clock"></i>
-                    <span>${formatTime(event.startTime) || "לא צוין"}</span>
+            `;
+        } else {
+            const event = item.data;
+            return `
+                <div class="event-card">
+                    <div class="event-header">
+                        <div class="event-name">${event.name || "ללא שם"}</div>
+                        <span class="event-status ${getStatusClass(event.status)}">${getStatusText(event.status)}</span>
+                    </div>
+                    <div class="event-details">
+                        <div class="event-detail">
+                            <i class="fas fa-calendar"></i>
+                            <span>${formatDate(event.eventDate)}</span>
+                        </div>
+                        <div class="event-detail">
+                            <i class="fas fa-clock"></i>
+                            <span>${formatTime(event.startTime) || "לא צוין"}</span>
+                        </div>
+                        <div class="event-detail">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>${event.location || "לא צוין"}</span>
+                        </div>
+                        <div class="event-detail">
+                            <i class="fas fa-users"></i>
+                            <span>${event.participantCount || 0} משתתפים</span>
+                        </div>
+                    </div>
+                    <div class="event-actions">
+                        <button class="btn-event-action btn-view" onclick="viewEvent(${event.id})">
+                            <i class="fas fa-eye"></i> צפה בפרטים
+                        </button>
+                        ${event.status === 'APPROVED' || event.status === 'CONFIRMED' ? `
+                            <button class="btn-event-action btn-send-message" onclick="openMessageModalForEvent(${event.id})">
+                                <i class="fas fa-envelope"></i> שלח הודעה
+                            </button>
+                            <button class="btn-event-action btn-primary-action" data-event-id="${event.id}" onclick="openQuoteModalForEvent(this)">
+                                <i class="fas fa-calculator"></i> צור הצעת מחיר
+                            </button>
+                        ` : ''}
+                        <button class="btn-event-action btn-danger-action" data-event-id="${event.id}" onclick="deleteEvent(this)">
+                            <i class="fas fa-trash"></i> מחק
+                        </button>
+                    </div>
                 </div>
-                <div class="event-detail">
-                    <i class="fas fa-map-marker-alt"></i>
-                    <span>${event.location || "לא צוין"}</span>
-                </div>
-                <div class="event-detail">
-                    <i class="fas fa-users"></i>
-                    <span>${event.participantCount || 0} משתתפים</span>
-                </div>
-            </div>
-            <div class="event-actions">
-                <button class="btn-event-action btn-view" onclick="viewEvent(${event.id})">
-                    <i class="fas fa-eye"></i> צפה בפרטים
-                </button>
-                ${event.status === 'APPROVED' || event.status === 'CONFIRMED' ? `
-                    <button class="btn-event-action btn-send-message" onclick="openMessageModalForEvent(${event.id})">
-                        <i class="fas fa-envelope"></i> שלח הודעה
-                    </button>
-                ` : ''}
-            </div>
-        </div>
-    `).join('');
+            `;
+        }
+    }).join('');
 }
 
 function getStatusText(status) {
@@ -281,12 +599,95 @@ function viewEvent(eventId) {
 }
 
 /*********************************
+ * DELETE EVENT
+ *********************************/
+async function deleteEvent(buttonElement) {
+    const eventId = buttonElement.getAttribute('data-event-id');
+    if (!eventId) {
+        alert("שגיאה: לא נמצא מזהה אירוע");
+        return;
+    }
+    
+    const event = currentEvents.find(e => e.id === parseInt(eventId));
+    const eventName = event ? event.name : `אירוע #${eventId}`;
+    
+    if (!confirm(`האם אתה בטוח שברצונך למחוק את האירוע "${eventName}"?\n\nפעולה זו לא ניתנת לביטול.`)) {
+        return;
+    }
+    
+    const token = getToken();
+    if (!token) {
+        alert("אנא התחבר תחילה");
+        window.location.href = "/login.html";
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${EVENTS_URL}/id/${eventId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (res.status === 401) {
+            alert("פג תוקף ההתחברות. אנא התחבר שוב.");
+            window.location.href = "/login.html";
+            return;
+        }
+        
+        if (res.status === 403) {
+            alert("אין לך הרשאה למחוק אירוע זה.");
+            return;
+        }
+        
+        if (res.status === 404) {
+            alert("האירוע לא נמצא.");
+            return;
+        }
+        
+        if (!res.ok) {
+            const errorText = await res.text().catch(() => 'שגיאה לא ידועה');
+            throw new Error(errorText || "שגיאה במחיקת האירוע");
+        }
+        
+        // Show success message
+        alert("האירוע נמחק בהצלחה!");
+        
+        // Refresh events list
+        await fetchEvents();
+        
+    } catch (err) {
+        console.error("Error deleting event:", err);
+        alert("שגיאה במחיקת האירוע: " + err.message);
+    }
+}
+
+/*********************************
  * QUOTE REQUEST
  *********************************/
 let currentQuote = null;
 
-function openQuoteModal() {
-    // Open new page for quote request
+function openQuoteModalForEvent(buttonElement) {
+    // Get eventId from data attribute
+    const eventId = buttonElement.getAttribute('data-event-id');
+    if (eventId) {
+        window.location.href = `/quote-request.html?eventId=${eventId}`;
+    } else {
+        alert("שגיאה: לא נמצא מזהה אירוע");
+    }
+}
+
+function openQuoteModal(eventId) {
+    // If eventId is provided, navigate to quote-request.html with eventId parameter
+    if (eventId && typeof eventId === 'number') {
+        window.location.href = `/quote-request.html?eventId=${eventId}`;
+        return;
+    }
+    
+    // If no eventId, simply navigate to quote-request.html
+    // The page will handle creating a new event or selecting an existing one
     window.location.href = '/quote-request.html';
 }
 

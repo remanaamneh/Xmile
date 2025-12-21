@@ -2,11 +2,19 @@ spring:
   application:
     name: xmile-backend
 
+  # Configure static resource handling
+  web:
+    resources:
+      add-mappings: true
+      static-locations: classpath:/static/
+    # Disable default static resource handling for API paths
+    mvc:
+      throw-exception-if-no-handler-found: false
   
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:xmile_db}?useSSL=${DB_USE_SSL:false}&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: ${DB_USER:xmile_user}
-    password: ${DB_PASSWORD:xmile_password}
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:Rn@318695681}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 
@@ -24,14 +32,15 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    out-of-order: true
 
 server:
   port: ${SERVER_PORT:8080}
 
 jwt:
-  secret: ${JWT_SECRET:CHANGE_ME_THIS_IS_A_DEMO_SECRET_KEY_WITH_AT_LEAST_32_CHARS}
+  secret: ${JWT_SECRET:"CHANGE_ME_THIS_IS_A_DEMO_SECRET_KEY_WITH_AT_LEAST_32_CHARS"}
   expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
 admin:
-  email: ${ADMIN_EMAIL:admin@xmile.com}
-  password: ${ADMIN_PASSWORD:admin123}
+  email: ${ADMIN_EMAIL:Admin@gmail.com}
+  password: ${ADMIN_PASSWORD:Admin$123}

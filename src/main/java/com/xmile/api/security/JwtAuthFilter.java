@@ -35,6 +35,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getRequestURI();
+        String method = request.getMethod();
+        
+        // Log requests to /client/quote-requests for debugging
+        if (path.startsWith("/client/quote-requests")) {
+            System.out.println("=== JWT FILTER: /client/quote-requests REQUEST ===");
+            System.out.println("Method: " + method);
+            System.out.println("Path: " + path);
+            System.out.println("=== END ===");
+        }
         
         // Skip JWT filter for static resources and public endpoints
         if (path.equals("/") || 

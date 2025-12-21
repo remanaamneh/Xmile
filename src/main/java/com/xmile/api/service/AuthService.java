@@ -67,10 +67,13 @@ public class AuthService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     public UserResponse getCurrentUser(Long userId) {
+        // Fetch user within transaction to avoid lazy loading issues
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        // Map to DTO - all fields are primitive, no lazy relations
         return UserResponse.builder()
                 .id(user.getId())
                 .name(user.getName())

@@ -57,6 +57,9 @@ public class Event {
     @Column(name = "start_time", nullable = false)
     private LocalTime startTime;
 
+    @Column(name = "event_datetime", nullable = true)
+    private LocalDateTime eventDatetime;
+
     @Column(name = "participant_count", nullable = false)
     private Integer participantCount;
 
@@ -64,7 +67,7 @@ public class Event {
     private BigDecimal xmileCommissionPercent;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 30, columnDefinition = "VARCHAR(30) NOT NULL")
     private EventStatus status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -81,11 +84,19 @@ public class Event {
         if (status == null) status = EventStatus.DRAFT;
         if (xmileCommissionPercent == null) xmileCommissionPercent = BigDecimal.ZERO;
         if (participantCount == null) participantCount = 0;
+        // Calculate event_datetime from eventDate and startTime
+        if (eventDatetime == null && eventDate != null && startTime != null) {
+            eventDatetime = LocalDateTime.of(eventDate, startTime);
+        }
     }
 
     @PreUpdate
     void onUpdate() {
         updatedAt = LocalDateTime.now();
+        // Update event_datetime if eventDate or startTime changed
+        if (eventDate != null && startTime != null) {
+            eventDatetime = LocalDateTime.of(eventDate, startTime);
+        }
     }
 }
 

@@ -31,5 +31,11 @@ public class QuoteResponse {
     private Map<String, Object> breakdown;
     private LocalDateTime createdAt;
     private LocalDateTime approvedAt;
+    private Integer requestedWorkers;
+    
+    // Client information
+    private Long clientUserId;
+    private String clientUserName;
+    private String clientUserEmail;
 }
 

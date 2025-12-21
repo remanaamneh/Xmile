@@ -25,6 +25,12 @@ public class WorkerProfile {
     @Column(length = 30)
     private String phone;
 
+    @Column(length = 100)
+    private String city; // City/area for matching
+
+    @Column(columnDefinition = "TEXT")
+    private String skills; // Skills/tags (comma-separated or JSON)
+
     @Column(name = "home_lat", precision = 9, scale = 6)
     private BigDecimal homeLat;
 

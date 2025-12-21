@@ -38,3 +38,13 @@ application-prod.yml
 
 /.apt_generated/
 /.apt_generated_tests/
+
+# Temporary SQL fix files (should not be committed)
+fix_*.sql
+*_fix.sql
+*_failed.sql
+*_indexes.sql
+
+# Documentation drafts
+*_IMPLEMENTATION.md
+*_DRAFT.md

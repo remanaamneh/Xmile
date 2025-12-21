@@ -117,15 +117,30 @@ async function handleLogin(e) {
         
         if (data.token) {
             localStorage.setItem("token", data.token);
-            // Clear selected role from session
+            
+            // Get selected role from session before clearing
             const selectedRole = sessionStorage.getItem('selectedRole');
             sessionStorage.removeItem('selectedRole');
             
+            // Get user role from API response or fallback to selected role
+            const userRole = data.role || selectedRole;
+            
             // Redirect based on role
-            if (selectedRole === 'CLIENT') {
+            if (userRole === 'ADMIN' || selectedRole === 'ADMIN') {
+                window.location.href = "/manager-dashboard.html";
+            } else if (userRole === 'CLIENT' || selectedRole === 'CLIENT') {
                 window.location.href = "/client-dashboard.html";
+            } else if (userRole === 'WORKER' || selectedRole === 'WORKER' || selectedRole === 'EMPLOYEE') {
+                // Redirect to worker profile page (they can navigate to offers from there)
+                window.location.href = "/worker-profile.html";
             } else {
-                window.location.href = "/dashboard.html";
+                // Default fallback - try to redirect based on selected role
+                if (selectedRole === 'EMPLOYEE') {
+                    window.location.href = "/worker-profile.html";
+                } else {
+                    // Unknown role - redirect to role selection
+                    window.location.href = "/select-role.html";
+                }
             }
         } else {
             throw new Error("לא התקבל טוקן");
