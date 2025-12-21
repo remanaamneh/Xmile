@@ -41,6 +41,9 @@ public class EventWorkerRequest {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "requested_workers", nullable = false)
+    private Integer requestedWorkers;
+
     @PrePersist
     void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -49,6 +52,7 @@ public class EventWorkerRequest {
         if (status == null) status = WorkerRequestStatus.OPEN;
         if (requiredCount == null) requiredCount = 0;
         if (radiusKm == null) radiusKm = BigDecimal.ZERO;
+        if (requestedWorkers == null) requestedWorkers = 0; // ✅ זה
     }
 
     @PreUpdate
@@ -56,5 +60,3 @@ public class EventWorkerRequest {
         updatedAt = LocalDateTime.now();
     }
 }
-
-

@@ -1,4 +1,6 @@
 package com.xmile.api.service;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.xmile.api.dto.AuthRequest;
 import com.xmile.api.dto.AuthResponse;
@@ -76,5 +78,21 @@ public class AuthService {
                 .role(user.getRole())
                 .build();
     }
+    
+    public User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder
+                .getContext()
+                .getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("Unauthenticated");
+        }
+
+        Long userId = (Long) authentication.getPrincipal();
+
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
 }
 
