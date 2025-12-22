@@ -287,18 +287,27 @@ body {
 
 .status-submitted,
 .status-pending {
-    background-color: #fff3cd;
+    background-color: #fff3cd; /* Yellow */
     color: #856404;
+    border: 1px solid #ffc107;
 }
 
 .status-approved {
-    background-color: #d4edda;
+    background-color: #d4edda; /* Green */
     color: #155724;
+    border: 1px solid #28a745;
 }
 
 .status-rejected {
-    background-color: #f8d7da;
+    background-color: #f8d7da; /* Red */
     color: #721c24;
+    border: 1px solid #dc3545;
+}
+
+.status-default {
+    background-color: #e9ecef; /* Gray */
+    color: #495057;
+    border: 1px solid #6c757d;
 }
 
 .quote-details {

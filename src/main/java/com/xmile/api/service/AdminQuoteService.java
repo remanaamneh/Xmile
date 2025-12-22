@@ -30,13 +30,50 @@ public class AdminQuoteService {
     private final EventRepository eventRepository;
 
     /**
-     * Get all pending quotes (status = SUBMITTED)
-     * Uses JOIN FETCH to eagerly load all relations
+     * Get all pending quotes (status = QUOTE_PENDING or SENT_TO_MANAGER)
+     * For ADMIN users, returns ALL quotes with pending status (no production_company_id filter)
+     * Uses findByStatusInWithRelations to eagerly load all relations (event, clientUser, productionCompany)
      */
     @Transactional(readOnly = true)
     public List<AdminQuoteResponse> getPendingQuotes() {
-        List<EventQuote> quotes = quoteRepository.findPendingQuotesWithRelations(EventQuoteStatus.SUBMITTED);
-        return quotes.stream()
+        System.out.println("=== ADMIN GET PENDING QUOTES ===");
+        System.out.println("Looking for quotes with status: QUOTE_PENDING or SENT_TO_MANAGER");
+        
+        // Use findByStatusInWithRelations to eagerly load all relations (same as history endpoint)
+        List<EventQuoteStatus> pendingStatuses = List.of(
+            EventQuoteStatus.QUOTE_PENDING,
+            EventQuoteStatus.SENT_TO_MANAGER
+        );
+        
+        // This query eagerly loads event, clientUser, and productionCompany (same as findAllWithRelations)
+        List<EventQuote> allPendingQuotes = quoteRepository.findByStatusInWithRelations(pendingStatuses);
+        
+        System.out.println("=== PENDING QUOTES DEBUG ===");
+        System.out.println("Total pending quotes found: " + allPendingQuotes.size());
+        System.out.println("Statuses searched: QUOTE_PENDING, SENT_TO_MANAGER");
+        
+        // Count by status for debugging
+        long quotePendingCount = allPendingQuotes.stream()
+            .filter(q -> q.getStatus() == EventQuoteStatus.QUOTE_PENDING)
+            .count();
+        long sentToManagerCount = allPendingQuotes.stream()
+            .filter(q -> q.getStatus() == EventQuoteStatus.SENT_TO_MANAGER)
+            .count();
+        
+        System.out.println("  - QUOTE_PENDING: " + quotePendingCount);
+        System.out.println("  - SENT_TO_MANAGER: " + sentToManagerCount);
+        
+        // Log each quote for debugging
+        allPendingQuotes.forEach(q -> {
+            System.out.println("  Quote ID=" + q.getId() + 
+                             ", Status=" + q.getStatus() + 
+                             ", Event ID=" + (q.getEvent() != null ? q.getEvent().getId() : "null") +
+                             ", Event Name=" + (q.getEvent() != null ? q.getEvent().getName() : "null") +
+                             ", Client User ID=" + (q.getEvent() != null && q.getEvent().getClientUser() != null ? q.getEvent().getClientUser().getId() : "null"));
+        });
+        System.out.println("=== END PENDING QUOTES DEBUG ===");
+
+        return allPendingQuotes.stream()
                 .map(this::toAdminQuoteResponse)
                 .collect(Collectors.toList());
     }
@@ -78,17 +115,10 @@ public class AdminQuoteService {
         System.out.println("Current Status: " + quote.getStatus());
         System.out.println("=== END ===");
 
-        // Only SUBMITTED, SENT_TO_MANAGER, or MANAGER_REVIEW quotes can be approved
+        // Only QUOTE_PENDING quotes can be approved
         EventQuoteStatus currentStatus = quote.getStatus();
-        if (currentStatus != EventQuoteStatus.SUBMITTED && 
-            currentStatus != EventQuoteStatus.SENT_TO_MANAGER &&
-            currentStatus != EventQuoteStatus.MANAGER_REVIEW) {
-            System.err.println("=== INVALID QUOTE STATUS ===");
-            System.err.println("Quote ID: " + id);
-            System.err.println("Current Status: " + currentStatus);
-            System.err.println("Expected: SUBMITTED, SENT_TO_MANAGER, or MANAGER_REVIEW");
-            System.err.println("=== END ===");
-            throw new IllegalStateException("Only quotes with status SUBMITTED, SENT_TO_MANAGER, or MANAGER_REVIEW can be approved. Current status: " + currentStatus);
+        if (currentStatus != EventQuoteStatus.QUOTE_PENDING) {
+            throw new IllegalStateException("Only quotes with status QUOTE_PENDING can be approved. Current status: " + currentStatus);
         }
 
         // Update quote amount with final price
@@ -148,9 +178,9 @@ public class AdminQuoteService {
         EventQuote quote = quoteRepository.findByIdWithRelations(id)
                 .orElseThrow(() -> new RuntimeException("Quote not found"));
 
-        // Only SUBMITTED quotes can be rejected
-        if (quote.getStatus() != EventQuoteStatus.SUBMITTED) {
-            throw new IllegalStateException("Only quotes with status SUBMITTED can be rejected. Current status: " + quote.getStatus());
+        // Only QUOTE_PENDING quotes can be rejected
+        if (quote.getStatus() != EventQuoteStatus.QUOTE_PENDING) {
+            throw new IllegalStateException("Only quotes with status QUOTE_PENDING can be rejected. Current status: " + quote.getStatus());
         }
 
         // Update status to REJECTED

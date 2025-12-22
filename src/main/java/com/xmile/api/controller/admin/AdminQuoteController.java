@@ -64,11 +64,28 @@ public class AdminQuoteController {
 
     /**
      * GET /admin/quotes/pending
-     * Returns list of quotes with status SUBMITTED
+     * Returns list of quotes with status QUOTE_PENDING or SENT_TO_MANAGER
      */
     @GetMapping("/pending")
-    public ResponseEntity<List<AdminQuoteResponse>> getPendingQuotes() {
+    public ResponseEntity<List<AdminQuoteResponse>> getPendingQuotes(Authentication authentication) {
+        System.out.println("=== GET /admin/quotes/pending REQUEST ===");
+        if (authentication != null && authentication.getPrincipal() != null) {
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof Long) {
+                System.out.println("User ID: " + principal);
+            } else if (principal instanceof org.springframework.security.oauth2.jwt.Jwt jwt) {
+                System.out.println("User ID (from JWT): " + jwt.getSubject());
+            }
+            System.out.println("User Roles: " + authentication.getAuthorities());
+        } else {
+            System.out.println("Authentication: null or not authenticated");
+        }
+        
         List<AdminQuoteResponse> quotes = adminQuoteService.getPendingQuotes();
+        
+        System.out.println("Returning " + quotes.size() + " pending quotes to client");
+        System.out.println("=== END GET /admin/quotes/pending REQUEST ===");
+        
         return ResponseEntity.ok(quotes);
     }
 

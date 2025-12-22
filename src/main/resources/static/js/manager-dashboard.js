@@ -1,11 +1,11 @@
 /*********************************
  * MANAGER DASHBOARD
  * Handles manager/admin quote approval and management
- * Version: 1.0.4
+ * Version: 1.0.5
  *********************************/
 
 console.log('=== MANAGER DASHBOARD JS LOADED ===');
-console.log('Version: 1.0.4');
+console.log('Version: 1.0.5');
 console.log('Timestamp:', new Date().toISOString());
 
 // API_BASE is defined in config.js as window.API_BASE
@@ -77,24 +77,12 @@ document.addEventListener('DOMContentLoaded', function() {
         saveRejectBtn.addEventListener('click', handleRejectQuote);
     }
     
-    // Logout button uses onclick="window.logout()" directly in HTML
-    // No need for event listener here
-    
     console.log('=== END MANAGER DASHBOARD INIT ===');
 });
 
 /**
  * Load pending approvals from server
- * DETERMINISTIC: Always stops loading spinner, always shows result or error
- * This function is also aliased as loadPendingQuotes for backward compatibility
- */
-async function loadPendingApprovals() {
-    console.log('loadPendingApprovals() called - delegating to loadPendingQuotes()');
-    return loadPendingQuotes();
-}
-
-/**
- * Load pending quotes from server
+ * Calls GET /admin/quotes/pending ONLY (no fallback endpoints)
  * DETERMINISTIC: Always stops loading spinner, always shows result or error
  */
 async function loadPendingQuotes() {
@@ -135,130 +123,57 @@ async function loadPendingQuotes() {
         
         console.log('Token found, length:', authToken.length);
         
-        // Try endpoint 1: GET /admin/quotes/pending
-        const url1 = `${window.API_BASE}/admin/quotes/pending`;
-        console.log('=== ATTEMPT 1: GET /admin/quotes/pending ===');
-        console.log('Full URL:', url1);
+        // Call ONLY GET /admin/quotes/pending (no fallback endpoints)
+        const url = `${window.API_BASE}/admin/quotes/pending`;
+        console.log('=== CALLING GET /admin/quotes/pending ===');
+        console.log('Full URL:', url);
         console.log('Method: GET');
         console.log('Headers:', {
             'Authorization': 'Bearer ***' + authToken.substring(authToken.length - 4),
             'Content-Type': 'application/json'
         });
         
-        try {
-            response = await fetch(url1, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${authToken}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            console.log('Response received');
-            console.log('Status:', response.status);
-            console.log('Status Text:', response.statusText);
-            console.log('OK:', response.ok);
-            console.log('Response URL:', response.url);
-            
-            if (response.ok) {
-                responseBody = await response.text();
-                console.log('Response body (raw):', responseBody);
-                try {
-                    quotes = JSON.parse(responseBody);
-                    console.log('Response body (parsed):', quotes);
-                    console.log('Quotes type:', typeof quotes);
-                    console.log('Quotes is array:', Array.isArray(quotes));
-                    console.log('Quotes count:', Array.isArray(quotes) ? quotes.length : 'N/A');
-                } catch (parseError) {
-                    console.error('Failed to parse JSON:', parseError);
-                    console.error('Response text:', responseBody);
-                    throw new Error('תשובה לא תקינה מהשרת (לא JSON)');
-                }
-            } else if (response.status === 404) {
-                // If 404, try fallback endpoint
-                console.log('Endpoint 1 returned 404, trying fallback endpoint...');
-                throw new Error('404 - trying fallback');
-            } else {
-                // For other errors, read response body
-                responseBody = await response.text().catch(() => 'Unknown error');
-                console.error('Endpoint 1 failed with status:', response.status);
-                console.error('Response body:', responseBody);
-                throw new Error(`Endpoint 1 returned ${response.status}`);
-            }
-        } catch (endpoint1Error) {
-            console.warn('Endpoint 1 failed:', endpoint1Error.message);
-            
-            // Try endpoint 2: GET /admin/quotes?status=QUOTE_PENDING (fallback)
-            const url2 = `${window.API_BASE}/admin/quotes?status=QUOTE_PENDING`;
-            console.log('=== ATTEMPT 2: GET /admin/quotes?status=QUOTE_PENDING ===');
-            console.log('Full URL:', url2);
-            console.log('Method: GET');
-            console.log('Headers:', {
-                'Authorization': 'Bearer ***' + authToken.substring(authToken.length - 4),
+        response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json'
-            });
-            
-            try {
-                response = await fetch(url2, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                console.log('Response received (attempt 2)');
-                console.log('Status:', response.status);
-                console.log('Status Text:', response.statusText);
-                console.log('OK:', response.ok);
-                console.log('Response URL:', response.url);
-                
-                if (response.ok) {
-                    responseBody = await response.text();
-                    console.log('Response body (raw):', responseBody);
-                    try {
-                        quotes = JSON.parse(responseBody);
-                        console.log('Response body (parsed):', quotes);
-                        console.log('Quotes type:', typeof quotes);
-                        console.log('Quotes is array:', Array.isArray(quotes));
-                        console.log('Quotes count:', Array.isArray(quotes) ? quotes.length : 'N/A');
-                    } catch (parseError) {
-                        console.error('Failed to parse JSON:', parseError);
-                        console.error('Response text:', responseBody);
-                        throw new Error('תשובה לא תקינה מהשרת (לא JSON)');
-                    }
-                } else {
-                    responseBody = await response.text().catch(() => 'Unknown error');
-                    console.error('Endpoint 2 also failed with status:', response.status);
-                    console.error('Response body:', responseBody);
-                }
-            } catch (endpoint2Error) {
-                console.error('Endpoint 2 also failed:', endpoint2Error.message);
-                // Try one more fallback: /admin/quote-requests?status=MANAGER_REVIEW
-                const url3 = `${window.API_BASE}/admin/quote-requests?status=MANAGER_REVIEW`;
-                console.log('=== ATTEMPT 3: GET /admin/quote-requests?status=MANAGER_REVIEW ===');
-                console.log('Full URL:', url3);
-                
-                response = await fetch(url3, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                console.log('Response received (attempt 3)');
-                console.log('Status:', response.status);
-                console.log('OK:', response.ok);
-                
-                if (response.ok) {
-                    responseBody = await response.text();
-                    quotes = JSON.parse(responseBody);
-                    console.log('Quotes count (attempt 3):', Array.isArray(quotes) ? quotes.length : 'N/A');
-                } else {
-                    responseBody = await response.text().catch(() => 'Unknown error');
-                }
             }
+        });
+        
+        console.log('Response received');
+        console.log('Status:', response.status);
+        console.log('Status Text:', response.statusText);
+        console.log('OK:', response.ok);
+        console.log('Response URL:', response.url);
+        
+        if (response.ok) {
+            responseBody = await response.text();
+            console.log('Response body (raw):', responseBody);
+            try {
+                quotes = JSON.parse(responseBody);
+                console.log('Response body (parsed):', quotes);
+                console.log('Quotes type:', typeof quotes);
+                console.log('Quotes is array:', Array.isArray(quotes));
+                console.log('Quotes count:', Array.isArray(quotes) ? quotes.length : 'N/A');
+                
+                // Log each quote's status for debugging
+                if (Array.isArray(quotes) && quotes.length > 0) {
+                    console.log('=== QUOTE STATUSES ===');
+                    quotes.forEach((q, idx) => {
+                        console.log(`Quote ${idx + 1}: ID=${q.id}, Status=${q.status}, Event=${q.eventName || 'N/A'}`);
+                    });
+                    console.log('=== END STATUSES ===');
+                }
+            } catch (parseError) {
+                console.error('Failed to parse JSON:', parseError);
+                console.error('Response text:', responseBody);
+                throw new Error('תשובה לא תקינה מהשרת (לא JSON)');
+            }
+        } else {
+            responseBody = await response.text().catch(() => 'Unknown error');
+            console.error('Endpoint failed with status:', response.status);
+            console.error('Response body:', responseBody);
         }
         
         // Handle HTTP status codes
@@ -285,7 +200,7 @@ async function loadPendingQuotes() {
         if (response && response.status === 404) {
             console.error('404 Not Found - Endpoint does not exist');
             errorOccurred = true;
-            const attemptedUrl = response.url || 'unknown';
+            const attemptedUrl = response.url || url;
             errorMessage = `הנתיב לא קיים: ${attemptedUrl}`;
             if (responseBody) {
                 errorMessage += `\nפרטים: ${responseBody}`;
@@ -420,10 +335,14 @@ function displayQuotes(quotes) {
         const eventDate = quote.eventDate || '';
         const requestedWorkers = quote.requestedWorkers || quote.workersNeeded || 0;
         
+        // Use mapStatus for consistent Hebrew labels and CSS classes
+        const statusInfo = mapStatus(status);
+        
         console.log(`Quote ${index + 1}:`, {
             id: quoteId,
             eventName: eventName,
             status: status,
+            statusLabel: statusInfo.heLabel,
             participantCount: participantCount
         });
         
@@ -436,8 +355,8 @@ function displayQuotes(quotes) {
                 <td>${participantCount}</td>
                 <td>${requestedWorkers}</td>
                 <td>
-                    <span class="status-badge ${getStatusBadgeClass(status)}">
-                        ${getStatusText(status)}
+                    <span class="status-badge ${statusInfo.cssClass}">
+                        ${escapeHtml(statusInfo.heLabel)}
                     </span>
                 </td>
                 <td>
@@ -752,13 +671,17 @@ async function loadHistoryQuotes() {
         if (historyEmpty) historyEmpty.style.display = 'none';
         
         if (historyList) {
-            historyList.innerHTML = quotes.map(quote => `
+            historyList.innerHTML = quotes.map(quote => {
+                // Use mapStatus for consistent Hebrew labels and CSS classes
+                const statusInfo = mapStatus(quote.status);
+                
+                return `
                 <div class="col-md-6 col-lg-4">
                     <div class="quote-card">
                         <div class="quote-header">
                             <h6 class="quote-title">${escapeHtml(quote.eventName || 'ללא שם')}</h6>
-                            <span class="status-badge ${getStatusBadgeClass(quote.status)}">
-                                ${getStatusText(quote.status)}
+                            <span class="status-badge ${statusInfo.cssClass}">
+                                ${escapeHtml(statusInfo.heLabel)}
                             </span>
                         </div>
                         <div class="quote-details">
@@ -782,7 +705,8 @@ async function loadHistoryQuotes() {
                         ` : ''}
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
     } catch (error) {
         console.error('Error loading history:', error);
@@ -810,7 +734,9 @@ async function loadEvents() {
             return;
         }
         
-        const url = `${window.API_BASE}/events/my`;
+        // For admin, use /events endpoint (not /events/my which requires ADMIN role)
+        // Since manager-dashboard is for admin, we can use /events which returns all events for authenticated user
+        const url = `${window.API_BASE}/events`;
         console.log('Loading events from:', url);
         
         const response = await fetch(url, {

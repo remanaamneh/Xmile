@@ -123,40 +123,79 @@ function formatPriceWithCurrency(price) {
 }
 
 /**
+ * Map status to Hebrew label and CSS class
+ * Supports both QUOTE_PENDING and SENT_TO_MANAGER for pending status
+ */
+function mapStatus(status) {
+    const statusUpper = (status || '').toUpperCase();
+    
+    // Pending statuses (yellow)
+    if (statusUpper === 'QUOTE_PENDING' || statusUpper === 'SENT_TO_MANAGER' || statusUpper === 'MANAGER_REVIEW') {
+        return {
+            heLabel: 'ממתין לאישור',
+            cssClass: 'status-pending'
+        };
+    }
+    
+    // Approved (green)
+    if (statusUpper === 'APPROVED' || statusUpper === 'QUOTE_APPROVED') {
+        return {
+            heLabel: 'אושר',
+            cssClass: 'status-approved'
+        };
+    }
+    
+    // Rejected (red)
+    if (statusUpper === 'REJECTED' || statusUpper === 'QUOTE_REJECTED') {
+        return {
+            heLabel: 'נדחה',
+            cssClass: 'status-rejected'
+        };
+    }
+    
+    // Draft (gray)
+    if (statusUpper === 'DRAFT') {
+        return {
+            heLabel: 'טיוטה',
+            cssClass: 'status-default'
+        };
+    }
+    
+    // Completed
+    if (statusUpper === 'COMPLETED') {
+        return {
+            heLabel: 'הושלם',
+            cssClass: 'status-default'
+        };
+    }
+    
+    // Cancelled
+    if (statusUpper === 'CANCELLED') {
+        return {
+            heLabel: 'בוטל',
+            cssClass: 'status-default'
+        };
+    }
+    
+    // Default
+    return {
+        heLabel: status || 'לא ידוע',
+        cssClass: 'status-default'
+    };
+}
+
+/**
  * Get status text in Hebrew
  */
 function getStatusText(status) {
-    const statusMap = {
-        'SUBMITTED': 'ממתין לאישור',
-        'SENT_TO_MANAGER': 'נשלח למנהל',
-        'MANAGER_REVIEW': 'בבדיקת מנהל',
-        'APPROVED': 'אושר',
-        'REJECTED': 'נדחה',
-        'CANCELLED': 'בוטל',
-        'submitted': 'ממתין לאישור',
-        'approved': 'אושר',
-        'rejected': 'נדחה',
-        'cancelled': 'בוטל',
-        'pending_approval': 'ממתין לאישור'
-    };
-    return statusMap[status] || status;
+    return mapStatus(status).heLabel;
 }
 
 /**
  * Get status badge class
  */
 function getStatusBadgeClass(status) {
-    const statusUpper = (status || '').toUpperCase();
-    if (statusUpper === 'APPROVED' || statusUpper === 'approved') {
-        return 'status-approved';
-    }
-    if (statusUpper === 'REJECTED' || statusUpper === 'rejected') {
-        return 'status-rejected';
-    }
-    if (statusUpper === 'SUBMITTED' || statusUpper === 'SENT_TO_MANAGER' || statusUpper === 'MANAGER_REVIEW') {
-        return 'status-pending';
-    }
-    return 'status-submitted';
+    return mapStatus(status).cssClass;
 }
 
 /**

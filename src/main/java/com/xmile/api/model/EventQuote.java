@@ -40,7 +40,7 @@ public class EventQuote {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32, columnDefinition = "VARCHAR(32)")
     @Builder.Default
-    private EventQuoteStatus status = EventQuoteStatus.SUBMITTED;
+    private EventQuoteStatus status = EventQuoteStatus.DRAFT;
 
     @Column(columnDefinition = "TEXT")
     private String notes;
@@ -69,7 +69,7 @@ public class EventQuote {
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
         // Don't override status if it's already set
-        if (status == null) status = EventQuoteStatus.SUBMITTED;
+        if (status == null) status = EventQuoteStatus.DRAFT;
         if (currency == null) currency = "ILS";
         if (xmileCommissionPercent == null) xmileCommissionPercent = BigDecimal.ZERO;
     }

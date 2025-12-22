@@ -1,5 +1,6 @@
-const API_BASE = window.API_BASE || 'http://localhost:8080';
-const PROFILE_URL = `${API_BASE}/worker/profile`;
+// API_BASE is defined in config.js as window.API_BASE
+// Use window.API_BASE directly - DO NOT redeclare
+const PROFILE_URL = `${window.API_BASE}/worker/profile`;
 
 let authToken = null;
 

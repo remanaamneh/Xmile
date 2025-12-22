@@ -86,7 +86,7 @@ public class QuoteService {
                     .quoteAmount(basePrice)
                     .currency("ILS")
                     .xmileCommissionPercent(new BigDecimal("10.00"))
-                    .status(EventQuoteStatus.SUBMITTED)  // הערכה ראשונית
+                    .status(EventQuoteStatus.DRAFT)  // הערכה ראשונית
                     .notes(request.getNotes())
                     .requestedWorkers(requestedWorkers);
             
@@ -188,9 +188,9 @@ public class QuoteService {
             throw new RuntimeException("Unauthorized");
         }
 
-        // Update quote status to SUBMITTED (נשלח לאישור החברה)
+        // Update quote status to DRAFT (הערכה ראשונית)
         // המחיר המדויק ייקבע אחרי שהחברה תאשר
-        quote.setStatus(EventQuoteStatus.SUBMITTED);
+        quote.setStatus(EventQuoteStatus.DRAFT);
         
         // Update requested workers count
         quote.setRequestedWorkers(request.getRepresentativesCount());
@@ -287,11 +287,11 @@ public class QuoteService {
     }
 
     /**
-     * Get all pending quotes (submitted status) for manager/admin
+     * Get all pending quotes (QUOTE_PENDING status) for manager/admin
      */
     @Transactional(readOnly = true)
     public List<QuoteResponse> getPendingQuotes() {
-        List<EventQuote> quotes = quoteRepository.findByStatusOrderByCreatedAtDesc(EventQuoteStatus.SUBMITTED);
+        List<EventQuote> quotes = quoteRepository.findByStatusOrderByCreatedAtDesc(EventQuoteStatus.QUOTE_PENDING);
         
         return quotes.stream()
                 .map(q -> {
@@ -525,73 +525,26 @@ public class QuoteService {
 
     /**
      * Send quote request to manager for approval
-     * Changes status from DRAFT/submitted to SENT_TO_MANAGER/MANAGER_REVIEW
+     * Sets status to QUOTE_PENDING
      */
     @Transactional
     public QuoteRequestDTO sendQuoteToManager(Long quoteId, Long clientUserId) {
-        System.out.println("=== SEND QUOTE TO MANAGER ===");
-        System.out.println("Quote ID: " + quoteId);
-        System.out.println("Client User ID: " + clientUserId);
-        
-        // First check if quote exists at all
-        Optional<EventQuote> quoteOpt = quoteRepository.findById(quoteId);
-        if (quoteOpt.isEmpty()) {
-            System.err.println("ERROR: Quote not found by ID: " + quoteId);
-            throw new RuntimeException("Quote request not found");
-        }
-        
-        EventQuote foundQuote = quoteOpt.get();
-        System.out.println("✓ Found quote by ID. Quote status: " + foundQuote.getStatus());
-        if (foundQuote.getEvent() != null && foundQuote.getEvent().getClientUser() != null) {
-            Long actualClientUserId = foundQuote.getEvent().getClientUser().getId();
-            System.out.println("✓ Quote event client user ID: " + actualClientUserId);
-            System.out.println("✓ Requested client user ID: " + clientUserId);
-            System.out.println("✓ User IDs match: " + actualClientUserId.equals(clientUserId));
-        } else {
-            System.err.println("ERROR: Quote event or client user is null!");
-            throw new RuntimeException("Quote request not found or access denied");
-        }
-        
-        // Then verify ownership using the query
-        Optional<EventQuote> quoteWithUserOpt = quoteRepository.findByIdAndClientUserId(quoteId, clientUserId);
-        if (quoteWithUserOpt.isEmpty()) {
-            System.err.println("ERROR: Quote not found by ID and client user ID query.");
-            System.err.println("  Quote ID: " + quoteId);
-            System.err.println("  Client User ID: " + clientUserId);
-            if (foundQuote.getEvent() != null && foundQuote.getEvent().getClientUser() != null) {
-                System.err.println("  Actual client user ID in quote: " + foundQuote.getEvent().getClientUser().getId());
-                System.err.println("  User ID types match: " + (foundQuote.getEvent().getClientUser().getId().getClass() == clientUserId.getClass()));
-            }
-            throw new RuntimeException("Quote request not found or access denied");
-        }
-        
-        EventQuote quote = quoteWithUserOpt.get();
-        System.out.println("✓ Quote found and ownership verified");
+        // Verify ownership
+        EventQuote quote = quoteRepository.findByIdAndClientUserId(quoteId, clientUserId)
+                .orElseThrow(() -> new RuntimeException("Quote request not found or access denied"));
 
-        // Check if quote can be sent (must be in DRAFT or SUBMITTED status)
-        EventQuoteStatus currentStatus = quote.getStatus();
-        if (currentStatus != EventQuoteStatus.DRAFT && 
-            currentStatus != EventQuoteStatus.SUBMITTED &&
-            currentStatus != EventQuoteStatus.SENT_TO_MANAGER) {
-            throw new IllegalStateException("Quote request cannot be sent. Current status: " + currentStatus);
-        }
+        System.out.println("Sending quote to manager. ID=" + quote.getId());
+        quote.setStatus(EventQuoteStatus.QUOTE_PENDING);
+        quote.setUpdatedAt(java.time.LocalDateTime.now());
 
-        // Update status to SENT_TO_MANAGER (which maps to MANAGER_REVIEW for admin view)
-        quote.setStatus(EventQuoteStatus.SENT_TO_MANAGER);
-        
-        // Update event status
-        Event event = quote.getEvent();
-        event.setStatus(EventStatus.PENDING_APPROVAL);
-        eventRepository.save(event);
-        
-        quote = quoteRepository.save(quote);
+        EventQuote savedQuote = quoteRepository.save(quote);
         
         // Reload quote with all relations for response
-        quote = quoteRepository.findByIdWithRelations(quote.getId())
+        EventQuote reloadedQuote = quoteRepository.findByIdWithRelations(savedQuote.getId())
                 .orElseThrow(() -> new RuntimeException("Failed to reload quote with relations"));
         
         System.out.println("=== QUOTE SENT TO MANAGER ===");
-        System.out.println("Quote ID: " + quote.getId());
+        System.out.println("Quote ID: " + reloadedQuote.getId());
         System.out.println("New Status: " + quote.getStatus());
         System.out.println("=== END ===");
         
@@ -611,19 +564,9 @@ public class QuoteService {
             
             List<EventQuote> quotes;
             if (statusFilter != null) {
-                // If filtering by MANAGER_REVIEW, also include SENT_TO_MANAGER and SUBMITTED
-                if (statusFilter == EventQuoteStatus.MANAGER_REVIEW) {
-                    List<EventQuoteStatus> statuses = List.of(
-                        EventQuoteStatus.MANAGER_REVIEW,
-                        EventQuoteStatus.SENT_TO_MANAGER,
-                        EventQuoteStatus.SUBMITTED
-                    );
-                    quotes = quoteRepository.findByStatusInWithRelations(statuses);
-                    System.out.println("Found " + quotes.size() + " quotes with status MANAGER_REVIEW/SENT_TO_MANAGER/SUBMITTED");
-                } else {
-                    quotes = quoteRepository.findByStatusOrderByCreatedAtDesc(statusFilter);
-                    System.out.println("Found " + quotes.size() + " quotes with status: " + statusFilter);
-                }
+                // Use QUOTE_PENDING for pending quotes
+                quotes = quoteRepository.findByStatusOrderByCreatedAtDesc(statusFilter);
+                System.out.println("Found " + quotes.size() + " quotes with status: " + statusFilter);
             } else {
                 quotes = quoteRepository.findAllWithRelations();
                 System.out.println("Found " + quotes.size() + " quotes (all)");
@@ -662,12 +605,10 @@ public class QuoteService {
         EventQuote quote = quoteRepository.findByIdWithRelations(quoteId)
                 .orElseThrow(() -> new RuntimeException("Quote request not found"));
 
-        // Accept SUBMITTED, MANAGER_REVIEW, and SENT_TO_MANAGER statuses
+        // Only QUOTE_PENDING quotes can be approved
         EventQuoteStatus currentStatus = quote.getStatus();
-        if (currentStatus != EventQuoteStatus.SUBMITTED && 
-            currentStatus != EventQuoteStatus.MANAGER_REVIEW &&
-            currentStatus != EventQuoteStatus.SENT_TO_MANAGER) {
-            throw new IllegalStateException("Only quotes in review can be approved. Current status: " + currentStatus);
+        if (currentStatus != EventQuoteStatus.QUOTE_PENDING) {
+            throw new IllegalStateException("Only quotes with status QUOTE_PENDING can be approved. Current status: " + currentStatus);
         }
 
         // Update quote amount with final price (required field)
@@ -726,12 +667,10 @@ public class QuoteService {
         EventQuote quote = quoteRepository.findByIdWithRelations(quoteId)
                 .orElseThrow(() -> new RuntimeException("Quote request not found"));
 
-        // Accept SUBMITTED, MANAGER_REVIEW, and SENT_TO_MANAGER statuses
+        // Only QUOTE_PENDING quotes can be rejected
         EventQuoteStatus currentStatus = quote.getStatus();
-        if (currentStatus != EventQuoteStatus.SUBMITTED && 
-            currentStatus != EventQuoteStatus.MANAGER_REVIEW &&
-            currentStatus != EventQuoteStatus.SENT_TO_MANAGER) {
-            throw new IllegalStateException("Only quotes in review can be rejected. Current status: " + currentStatus);
+        if (currentStatus != EventQuoteStatus.QUOTE_PENDING) {
+            throw new IllegalStateException("Only quotes with status QUOTE_PENDING can be rejected. Current status: " + currentStatus);
         }
 
         // Update status to REJECTED

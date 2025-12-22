@@ -39,11 +39,10 @@ public class AdminQuoteRequestController {
                     // Map status strings to enum values
                     String statusUpper = status.toUpperCase();
                     if ("pending_approval".equalsIgnoreCase(status) || 
-                        "MANAGER_REVIEW".equalsIgnoreCase(status) ||
-                        "SENT_TO_MANAGER".equalsIgnoreCase(status)) {
-                        // For admin, show both legacy submitted and new MANAGER_REVIEW/SENT_TO_MANAGER
-                        statusFilter = EventQuoteStatus.MANAGER_REVIEW;
-                        System.out.println("Mapped " + status + " to MANAGER_REVIEW");
+                        "QUOTE_PENDING".equalsIgnoreCase(status)) {
+                        // Map to QUOTE_PENDING
+                        statusFilter = EventQuoteStatus.QUOTE_PENDING;
+                        System.out.println("Mapped " + status + " to QUOTE_PENDING");
                     } else {
                         statusFilter = EventQuoteStatus.valueOf(statusUpper);
                         System.out.println("Using status: " + statusFilter);

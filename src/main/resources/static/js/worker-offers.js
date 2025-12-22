@@ -1,5 +1,6 @@
-const API_BASE = window.API_BASE || 'http://localhost:8080';
-const OFFERS_URL = `${API_BASE}/worker/offers`;
+// API_BASE is defined in config.js as window.API_BASE
+// Use window.API_BASE directly - DO NOT redeclare
+const OFFERS_URL = `${window.API_BASE}/worker/offers`;
 
 let authToken = null;
 let allOffers = [];
