@@ -71,13 +71,6 @@ function checkUserRoleAndRedirect() {
                 return;
             }
         }
-        // If user is WORKER, redirect to worker profile
-        if (role === 'WORKER' || role === 'ROLE_WORKER' || role === 'EMPLOYEE') {
-            if (!window.location.pathname.includes('worker-')) {
-                window.location.href = '/worker-profile.html';
-                return;
-            }
-        }
         // If user is ADMIN, stay on admin dashboard
     } catch (err) {
         console.error("Error checking role:", err);

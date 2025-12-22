@@ -19,7 +19,7 @@ Spring Boot 3 backend API with authentication, roles, and RBAC.
 
 - User authentication with JWT
 - Role-based access control (RBAC)
-- Roles: ADMIN, CLIENT, PARTICIPANT, WORKER
+- Roles: ADMIN, CLIENT
 - Admin user seeding on startup
 - Database migrations with Flyway
 
@@ -211,10 +211,8 @@ The `users` table is created automatically via Flyway migration:
 
 ## Default Roles
 
-- **ADMIN**: Full system access
-- **CLIENT**: Default role for new registrations
-- **PARTICIPANT**: For participants
-- **WORKER**: For workers
+- **ADMIN**: Full system access (company manager)
+- **CLIENT**: Default role for new registrations (business client)
 
 ## Testing the API
 

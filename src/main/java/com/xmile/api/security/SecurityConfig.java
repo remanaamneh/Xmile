@@ -57,15 +57,15 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/health", "/api/info", "/auth/**").permitAll()
+                        .requestMatchers("/health", "/api/info", "/auth/**", "/api/chatbot/**").permitAll()
                         // API endpoints - check BEFORE static resources
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/client/**").hasRole("CLIENT")
-                        .requestMatchers("/worker/**").hasRole("WORKER")
+                        // WORKER routes removed - WORKER role no longer supported
                         .requestMatchers("/events/**", "/quotes/**", "/messages/**").authenticated()
                         .requestMatchers("/production-companies").authenticated()
                         // Static resources - check AFTER API endpoints
-                        .requestMatchers("/", "/index.html", "/dashboard.html", "/client-dashboard.html", "/manager-dashboard.html", "/quote-request.html", "/quote-result.html", "/quote-success.html", "/worker-profile.html", "/worker-offers.html", "/server-info.html", "/*.html", "/*.css", "/*.js", "/js/**", "/css/**", "/partner-ui/**", "/static/**", "/favicon.ico", "/*.jpg", "/*.png", "/*.webp", "/*.ico").permitAll()
+                        .requestMatchers("/", "/index.html", "/dashboard.html", "/client-dashboard.html", "/manager-dashboard.html", "/quote-request.html", "/quote-result.html", "/quote-success.html", "/server-info.html", "/*.html", "/*.css", "/*.js", "/js/**", "/css/**", "/partner-ui/**", "/static/**", "/favicon.ico", "/*.jpg", "/*.png", "/*.webp", "/*.ico").permitAll()
                         .anyRequest().permitAll()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

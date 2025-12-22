@@ -13,10 +13,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-@RestController
+// DISABLED: WORKER role removed from system
+//@RestController
 @RequestMapping("/worker/profile")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('WORKER')")
+//@PreAuthorize("hasRole('WORKER')")
 public class WorkerProfileController {
 
     private final WorkerProfileRepository workerProfileRepository;
@@ -71,6 +72,8 @@ public class WorkerProfileController {
         // Update fields
         profile.setPhone(request.getPhone());
         profile.setCity(request.getCity());
+        profile.setLocationText(request.getLocationText());
+        profile.setAvailability(request.getAvailability());
         profile.setSkills(request.getSkills());
         profile.setHomeLat(request.getHomeLat());
         profile.setHomeLng(request.getHomeLng());
@@ -86,6 +89,8 @@ public class WorkerProfileController {
                 .userId(profile.getUser().getId())
                 .phone(profile.getPhone())
                 .city(profile.getCity())
+                .locationText(profile.getLocationText())
+                .availability(profile.getAvailability())
                 .skills(profile.getSkills())
                 .homeLat(profile.getHomeLat())
                 .homeLng(profile.getHomeLng())

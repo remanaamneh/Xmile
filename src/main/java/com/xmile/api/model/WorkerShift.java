@@ -4,46 +4,37 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "worker_applications")
+@Table(name = "worker_shifts")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class WorkerApplication {
+public class WorkerShift {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "request_id", nullable = false)
-    private EventWorkerRequest request;
+    @JoinColumn(name = "worker_user_id", nullable = false)
+    private User workerUser;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "event_id", nullable = false)
+    private Event event;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
-    private WorkerApplicationStatus status;
+    @Column(name = "work_date", nullable = false)
+    private LocalDate workDate;
 
-    @Column(name = "rejection_reason", columnDefinition = "TEXT")
-    private String rejectionReason;
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal hours;
 
-    @Column(name = "distance_km", precision = 6, scale = 2)
-    private BigDecimal distanceKm;
-
-    @Column(name = "invited_at")
-    private LocalDateTime invitedAt;
-
-    @Column(name = "responded_at")
-    private LocalDateTime respondedAt;
-
-    @Column(name = "assigned_at")
-    private LocalDateTime assignedAt;
+    @Column(columnDefinition = "TEXT")
+    private String notes;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -56,7 +47,7 @@ public class WorkerApplication {
         LocalDateTime now = LocalDateTime.now();
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
-        if (status == null) status = WorkerApplicationStatus.INVITED;
+        if (hours == null) hours = BigDecimal.ZERO;
     }
 
     @PreUpdate

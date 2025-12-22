@@ -11,6 +11,7 @@ import com.xmile.api.model.User;
 import com.xmile.api.repository.EventQuoteRepository;
 import com.xmile.api.repository.EventRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AdminQuoteService {
 
     private final EventQuoteRepository quoteRepository;
@@ -95,29 +97,28 @@ public class AdminQuoteService {
      */
     @Transactional
     public AdminQuoteResponse approveQuote(Long id, AdminApproveQuoteDTO request) {
-        System.out.println("=== ADMIN QUOTE SERVICE: APPROVE QUOTE ===");
-        System.out.println("Quote ID: " + id);
-        System.out.println("Final Price: " + request.getFinalPrice());
-        System.out.println("Requested Workers: " + request.getRequestedWorkers());
-        System.out.println("=== END ===");
+        // Signature log to identify updated code is running
+        log.info("=== ADMIN QUOTE SERVICE: APPROVE QUOTE (UPDATED CODE v1.0.7) ===");
+        log.info("Quote ID: {}", id);
+        log.info("Final Price: {}", request.getFinalPrice());
+        log.info("Requested Workers: {}", request.getRequestedWorkers());
         
         // Check if quote exists
         EventQuote quote = quoteRepository.findByIdWithRelations(id)
                 .orElseThrow(() -> {
-                    System.err.println("=== QUOTE NOT FOUND ===");
-                    System.err.println("Quote ID: " + id);
-                    System.err.println("=== END ===");
+                    log.error("Quote not found. Quote ID: {}", id);
                     return new RuntimeException("Quote not found");
                 });
 
-        System.out.println("=== QUOTE FOUND ===");
-        System.out.println("Quote ID: " + quote.getId());
-        System.out.println("Current Status: " + quote.getStatus());
-        System.out.println("=== END ===");
+        log.info("Quote found. Quote ID: {}", quote.getId());
+        
+        // Log currentStatus before validation
+        EventQuoteStatus currentStatus = quote.getStatus();
+        log.info("Approve quoteId={} currentStatus={}", id, currentStatus);
 
         // Only QUOTE_PENDING quotes can be approved
-        EventQuoteStatus currentStatus = quote.getStatus();
         if (currentStatus != EventQuoteStatus.QUOTE_PENDING) {
+            log.error("Invalid status for approval. Quote ID: {}, Current Status: {}", id, currentStatus);
             throw new IllegalStateException("Only quotes with status QUOTE_PENDING can be approved. Current status: " + currentStatus);
         }
 
@@ -171,24 +172,47 @@ public class AdminQuoteService {
 
     /**
      * Reject a quote
-     * Sets status=REJECTED, approvedAt=null, stores reason in admin_rejection_reason
+     * Sets status=REJECTED, approvedAt=null, stores reason in admin_rejection_reason, sets rejected_at
+     * Allows rejection for quotes with status: SENT_TO_MANAGER, MANAGER_REVIEW, or QUOTE_PENDING
      */
     @Transactional
     public AdminQuoteResponse rejectQuote(Long id, AdminRejectQuoteDTO request) {
+        // Signature log to identify updated code is running
+        log.info("=== ADMIN REJECT QUOTE (UPDATED CODE v1.0.7) ===");
+        log.info("Quote ID: {}", id);
+        log.info("Rejection reason: {}", request.getReason());
+        
         EventQuote quote = quoteRepository.findByIdWithRelations(id)
-                .orElseThrow(() -> new RuntimeException("Quote not found"));
+                .orElseThrow(() -> {
+                    log.error("Quote not found. Quote ID: {}", id);
+                    return new RuntimeException("Quote not found");
+                });
 
-        // Only QUOTE_PENDING quotes can be rejected
-        if (quote.getStatus() != EventQuoteStatus.QUOTE_PENDING) {
-            throw new IllegalStateException("Only quotes with status QUOTE_PENDING can be rejected. Current status: " + quote.getStatus());
+        // Log currentStatus before validation
+        EventQuoteStatus currentStatus = quote.getStatus();
+        log.info("Reject quoteId={} currentStatus={}", id, currentStatus);
+
+        // Allow rejection for pending statuses: SENT_TO_MANAGER, MANAGER_REVIEW, or QUOTE_PENDING
+        if (!(currentStatus == EventQuoteStatus.SENT_TO_MANAGER
+           || currentStatus == EventQuoteStatus.MANAGER_REVIEW
+           || currentStatus == EventQuoteStatus.QUOTE_PENDING)) {
+            log.error("Invalid status for rejection. Quote ID: {}, Current Status: {}", id, currentStatus);
+            throw new IllegalStateException(
+                "Only quotes with status SENT_TO_MANAGER, MANAGER_REVIEW, or QUOTE_PENDING can be rejected. Current status: " + currentStatus
+            );
         }
 
         // Update status to REJECTED
         quote.setStatus(EventQuoteStatus.REJECTED);
         quote.setApprovedAt(null);
+        quote.setRejectedAt(LocalDateTime.now());
+        quote.setUpdatedAt(LocalDateTime.now());
 
         // Store rejection reason in dedicated column
         quote.setAdminRejectionReason(request.getReason());
+
+        log.info("Setting status to REJECTED. rejected_at: {}, admin_rejection_reason: {}", 
+                quote.getRejectedAt(), quote.getAdminRejectionReason());
 
         quote = quoteRepository.save(quote);
 
@@ -196,10 +220,15 @@ public class AdminQuoteService {
         quote = quoteRepository.findByIdWithRelations(quote.getId())
                 .orElseThrow(() -> new RuntimeException("Failed to reload quote with relations"));
 
-        // Update event status
+        // Update event status to CANCELLED when quote is rejected
         Event event = quote.getEvent();
-        event.setStatus(EventStatus.CANCELLED);
-        eventRepository.save(event);
+        if (event != null) {
+            event.setStatus(EventStatus.CANCELLED);
+            eventRepository.save(event);
+        }
+
+        log.info("Quote rejected successfully. Quote ID: {}, Final status: {}", quote.getId(), quote.getStatus());
+        log.info("=== END ADMIN REJECT QUOTE ===");
 
         return toAdminQuoteResponse(quote);
     }
@@ -241,6 +270,7 @@ public class AdminQuoteService {
                 .createdAt(quote.getCreatedAt())
                 .updatedAt(quote.getUpdatedAt())
                 .approvedAt(quote.getApprovedAt())
+                .rejectedAt(quote.getRejectedAt())
                 .clientUserId(clientUser != null ? clientUser.getId() : null)
                 .clientUserName(clientUser != null ? clientUser.getName() : null)
                 .clientUserEmail(clientUser != null ? clientUser.getEmail() : null)

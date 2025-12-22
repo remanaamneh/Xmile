@@ -51,6 +51,9 @@ public class EventQuote {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

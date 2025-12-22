@@ -42,9 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Pre-select role if coming from back button
         const roleMap = {
             'ADMIN': 0,
-            'CLIENT': 1,
-            'WORKER': 2,
-            'EMPLOYEE': 2 // Legacy support
+            'CLIENT': 1
         };
         const cards = document.querySelectorAll('.role-card');
         if (roleMap[role] !== undefined && cards[roleMap[role]]) {

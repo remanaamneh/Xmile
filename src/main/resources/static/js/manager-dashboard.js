@@ -1,11 +1,11 @@
 /*********************************
  * MANAGER DASHBOARD
  * Handles manager/admin quote approval and management
- * Version: 1.0.5
+ * Version: 1.0.6
  *********************************/
 
 console.log('=== MANAGER DASHBOARD JS LOADED ===');
-console.log('Version: 1.0.5');
+console.log('Version: 1.0.6');
 console.log('Timestamp:', new Date().toISOString());
 
 // API_BASE is defined in config.js as window.API_BASE
@@ -13,6 +13,12 @@ console.log('Timestamp:', new Date().toISOString());
 console.log('API_BASE (manager-dashboard):', window.API_BASE);
 
 let authToken = null;
+
+// Global state: all quotes loaded from server
+let allQuotes = [];
+
+// Pending statuses that should appear in "בקשות לאישור" tab
+const PENDING_STATUSES = ['SENT_TO_MANAGER', 'MANAGER_REVIEW'];
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('=== MANAGER DASHBOARD INIT ===');
@@ -30,8 +36,10 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Token exists:', !!authToken);
     console.log('Token length:', authToken ? authToken.length : 0);
     
-    // Load pending quotes by default
-    loadPendingQuotes();
+    // Load all quotes first, then show pending by default
+    loadAllQuotes().then(() => {
+        loadPendingQuotes();
+    });
     
     // Setup tab change listeners
     const pendingTab = document.getElementById('pending-tab');
@@ -81,9 +89,131 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
- * Load pending approvals from server
- * Calls GET /admin/quotes/pending ONLY (no fallback endpoints)
- * DETERMINISTIC: Always stops loading spinner, always shows result or error
+ * Load all quotes from server once
+ * Uses GET /admin/quote-requests (without status filter) to get all quotes
+ */
+async function loadAllQuotes() {
+    console.log('=== LOADING ALL QUOTES ===');
+    console.log('Timestamp:', new Date().toISOString());
+    
+    try {
+        // Get token fresh
+        authToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!authToken) {
+            console.error('No token found in storage');
+            alert('פג תוקף התחברות. אנא התחבר שוב.');
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        // Call GET /admin/quote-requests without status filter to get all quotes
+        const url = `${window.API_BASE}/admin/quote-requests`;
+        console.log('=== CALLING GET /admin/quote-requests ===');
+        console.log('Full URL:', url);
+        console.log('Method: GET');
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('Response received');
+        console.log('Status:', response.status);
+        console.log('OK:', response.ok);
+        
+        if (response.status === 401) {
+            alert('פג תוקף התחברות. אנא התחבר שוב.');
+            localStorage.removeItem('token');
+            sessionStorage.removeItem('token');
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        if (!response.ok) {
+            throw new Error(`שגיאה בטעינת הצעות: ${response.status} ${response.statusText}`);
+        }
+        
+        const quotes = await response.json();
+        
+        // Store in global state
+        allQuotes = Array.isArray(quotes) ? quotes : [];
+        
+        // Log statistics
+        console.log('=== ALL QUOTES LOADED ===');
+        console.log('Loaded count:', allQuotes.length);
+        
+        // Get unique statuses
+        const statuses = [...new Set(allQuotes.map(q => q.status))];
+        console.log('Statuses list:', statuses);
+        
+        // Count pending quotes
+        const pendingQuotes = allQuotes.filter(q => PENDING_STATUSES.includes(q.status));
+        console.log('Pending count:', pendingQuotes.length);
+        console.log('Pending statuses:', PENDING_STATUSES);
+        
+        // Log count by status
+        const statusCounts = {};
+        allQuotes.forEach(q => {
+            const status = q.status || 'UNKNOWN';
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+        console.log('Count by status:', statusCounts);
+        console.log('=== END ALL QUOTES LOADED ===');
+        
+    } catch (error) {
+        console.error('=== ERROR LOADING ALL QUOTES ===');
+        console.error('Error:', error);
+        console.error('=== END ERROR ===');
+        allQuotes = []; // Reset to empty array on error
+        throw error;
+    }
+}
+
+/**
+ * Filter quotes by status and date range
+ * Shared function for both pending and history tabs
+ */
+function filterQuotes(quotes, statusFilter, dateFrom, dateTo) {
+    let filtered = [...quotes];
+    
+    // Filter by status
+    if (statusFilter && statusFilter.trim() !== '') {
+        filtered = filtered.filter(q => {
+            const qStatus = (q.status || '').toUpperCase();
+            const filterStatus = statusFilter.toUpperCase();
+            return qStatus === filterStatus;
+        });
+    }
+    
+    // Filter by date range
+    if (dateFrom) {
+        filtered = filtered.filter(q => {
+            if (!q.eventDate) return false;
+            const quoteDate = new Date(q.eventDate);
+            const fromDate = new Date(dateFrom);
+            return quoteDate >= fromDate;
+        });
+    }
+    
+    if (dateTo) {
+        filtered = filtered.filter(q => {
+            if (!q.eventDate) return false;
+            const quoteDate = new Date(q.eventDate);
+            const toDate = new Date(dateTo);
+            toDate.setHours(23, 59, 59, 999); // End of day
+            return quoteDate <= toDate;
+        });
+    }
+    
+    return filtered;
+}
+
+/**
+ * Load pending approvals from allQuotes
+ * Filters by PENDING_STATUSES and displays in pending tab
  */
 async function loadPendingQuotes() {
     const quotesLoading = document.getElementById('quotesLoading');
@@ -103,192 +233,70 @@ async function loadPendingQuotes() {
         console.log('Loading spinner shown');
     }
     
-    let response = null;
-    let quotes = null;
-    let errorOccurred = false;
-    let errorMessage = '';
-    let responseBody = '';
-    
     try {
-        // Get token fresh from storage (check both localStorage and sessionStorage)
-        authToken = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (!authToken) {
-            console.error('No token found in storage');
-            errorOccurred = true;
-            errorMessage = 'פג תוקף התחברות. אנא התחבר שוב.';
-            alert(errorMessage);
-            window.location.href = '/login.html';
-            return;
+        // Reload all quotes if empty (first load or refresh)
+        if (allQuotes.length === 0) {
+            console.log('allQuotes is empty, reloading...');
+            await loadAllQuotes();
         }
         
-        console.log('Token found, length:', authToken.length);
-        
-        // Call ONLY GET /admin/quotes/pending (no fallback endpoints)
-        const url = `${window.API_BASE}/admin/quotes/pending`;
-        console.log('=== CALLING GET /admin/quotes/pending ===');
-        console.log('Full URL:', url);
-        console.log('Method: GET');
-        console.log('Headers:', {
-            'Authorization': 'Bearer ***' + authToken.substring(authToken.length - 4),
-            'Content-Type': 'application/json'
+        // Filter pending quotes
+        const pendingQuotes = allQuotes.filter(q => {
+            const status = (q.status || '').toUpperCase();
+            return PENDING_STATUSES.includes(status);
         });
         
-        response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            }
-        });
+        console.log('=== PENDING QUOTES FILTERED ===');
+        console.log('All quotes count:', allQuotes.length);
+        console.log('Pending quotes count:', pendingQuotes.length);
+        console.log('Pending statuses:', PENDING_STATUSES);
+        console.log('=== END PENDING QUOTES FILTERED ===');
         
-        console.log('Response received');
-        console.log('Status:', response.status);
-        console.log('Status Text:', response.statusText);
-        console.log('OK:', response.ok);
-        console.log('Response URL:', response.url);
+        // Stop loading spinner
+        if (quotesLoading) {
+            quotesLoading.style.display = 'none';
+        }
         
-        if (response.ok) {
-            responseBody = await response.text();
-            console.log('Response body (raw):', responseBody);
-            try {
-                quotes = JSON.parse(responseBody);
-                console.log('Response body (parsed):', quotes);
-                console.log('Quotes type:', typeof quotes);
-                console.log('Quotes is array:', Array.isArray(quotes));
-                console.log('Quotes count:', Array.isArray(quotes) ? quotes.length : 'N/A');
-                
-                // Log each quote's status for debugging
-                if (Array.isArray(quotes) && quotes.length > 0) {
-                    console.log('=== QUOTE STATUSES ===');
-                    quotes.forEach((q, idx) => {
-                        console.log(`Quote ${idx + 1}: ID=${q.id}, Status=${q.status}, Event=${q.eventName || 'N/A'}`);
-                    });
-                    console.log('=== END STATUSES ===');
-                }
-            } catch (parseError) {
-                console.error('Failed to parse JSON:', parseError);
-                console.error('Response text:', responseBody);
-                throw new Error('תשובה לא תקינה מהשרת (לא JSON)');
+        // Display results
+        if (pendingQuotes.length === 0) {
+            console.log('No pending quotes found - showing empty state');
+            if (quotesEmpty) {
+                quotesEmpty.innerHTML = `
+                    <i class="fas fa-inbox"></i>
+                    <p>אין בקשות לאישור כרגע</p>
+                `;
+                quotesEmpty.style.display = 'block';
             }
+            if (quotesList) quotesList.innerHTML = '';
         } else {
-            responseBody = await response.text().catch(() => 'Unknown error');
-            console.error('Endpoint failed with status:', response.status);
-            console.error('Response body:', responseBody);
-        }
-        
-        // Handle HTTP status codes
-        if (response && response.status === 401) {
-            console.error('401 Unauthorized - Token expired or invalid');
-            errorOccurred = true;
-            errorMessage = 'פג תוקף התחברות. אנא התחבר שוב.';
-            localStorage.removeItem('token');
-            sessionStorage.removeItem('token');
-            alert(errorMessage);
-            window.location.href = '/login.html';
-            return;
-        }
-        
-        if (response && response.status === 403) {
-            console.error('403 Forbidden - No permission');
-            errorOccurred = true;
-            errorMessage = 'אין לך הרשאה לגשת לבקשות לאישור';
-            if (responseBody) {
-                errorMessage += `\nפרטים: ${responseBody}`;
-            }
-        }
-        
-        if (response && response.status === 404) {
-            console.error('404 Not Found - Endpoint does not exist');
-            errorOccurred = true;
-            const attemptedUrl = response.url || url;
-            errorMessage = `הנתיב לא קיים: ${attemptedUrl}`;
-            if (responseBody) {
-                errorMessage += `\nפרטים: ${responseBody}`;
-            }
-        }
-        
-        if (response && response.status >= 500) {
-            console.error('Server error:', response.status);
-            errorOccurred = true;
-            errorMessage = `שגיאת שרת (${response.status}): ${response.statusText}`;
-            if (responseBody) {
-                errorMessage += `\nפרטים: ${responseBody}`;
-            }
-        }
-        
-        if (response && !response.ok && !errorOccurred) {
-            console.error('Response not OK:', response.status);
-            errorOccurred = true;
-            errorMessage = `שגיאה בטעינת נתונים: ${response.status} ${response.statusText}`;
-            if (responseBody) {
-                errorMessage += `\nפרטים: ${responseBody}`;
-            }
+            console.log('Displaying', pendingQuotes.length, 'pending quotes');
+            displayQuotes(pendingQuotes);
+            if (quotesEmpty) quotesEmpty.style.display = 'none';
         }
         
     } catch (error) {
         console.error('=== EXCEPTION IN loadPendingQuotes ===');
-        console.error('Error type:', error.constructor.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
+        console.error('Error:', error);
         console.error('=== END EXCEPTION ===');
         
-        errorOccurred = true;
-        errorMessage = `שגיאה: ${error.message}`;
-        if (responseBody) {
-            errorMessage += `\nפרטים: ${responseBody}`;
-        }
-    } finally {
-        // ALWAYS stop loading spinner
-        console.log('=== FINALLY: Stopping loading spinner ===');
+        // Stop loading spinner
         if (quotesLoading) {
             quotesLoading.style.display = 'none';
-            console.log('Loading spinner hidden');
         }
         
-        // Display result or error
-        if (errorOccurred) {
-            console.log('Displaying error message');
-            if (quotesError) {
-                quotesError.innerHTML = `
-                    <i class="fas fa-exclamation-triangle"></i> <strong>שגיאה:</strong> ${escapeHtml(errorMessage)}
-                    <br><small>אנא בדוק את ה-Console (F12) לפרטים נוספים</small>
-                `;
-                quotesError.style.display = 'block';
-            }
-            if (quotesList) quotesList.innerHTML = '';
-            if (quotesEmpty) quotesEmpty.style.display = 'none';
-        } else if (quotes && Array.isArray(quotes)) {
-            if (quotesError) quotesError.style.display = 'none';
-            if (quotes.length === 0) {
-                console.log('No quotes found - showing empty state');
-                if (quotesEmpty) {
-                    quotesEmpty.innerHTML = `
-                        <i class="fas fa-inbox"></i>
-                        <p>אין בקשות לאישור כרגע</p>
-                    `;
-                    quotesEmpty.style.display = 'block';
-                }
-                if (quotesList) quotesList.innerHTML = '';
-            } else {
-                console.log('Displaying', quotes.length, 'quotes');
-                displayQuotes(quotes);
-                if (quotesEmpty) quotesEmpty.style.display = 'none';
-            }
-        } else {
-            console.error('Invalid quotes data:', quotes);
-            if (quotesError) {
-                quotesError.innerHTML = `
-                    <i class="fas fa-exclamation-triangle"></i> שגיאה: תשובה לא תקינה מהשרת (צפוי מערך)
-                    <br><small>סוג נתונים: ${typeof quotes}</small>
-                `;
-                quotesError.style.display = 'block';
-            }
-            if (quotesList) quotesList.innerHTML = '';
-            if (quotesEmpty) quotesEmpty.style.display = 'none';
+        // Show error
+        if (quotesError) {
+            quotesError.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i> <strong>שגיאה:</strong> ${escapeHtml(error.message || 'שגיאה בטעינת בקשות לאישור')}
+                <br><small>אנא בדוק את ה-Console (F12) לפרטים נוספים</small>
+            `;
+            quotesError.style.display = 'block';
         }
-        
-        console.log('=== END LOADING PENDING QUOTES ===');
+        if (quotesList) quotesList.innerHTML = '';
+        if (quotesEmpty) quotesEmpty.style.display = 'none';
     }
+    
+    console.log('=== END LOADING PENDING QUOTES ===');
 }
 
 /**
@@ -492,10 +500,6 @@ async function handleApproveQuote() {
         const url = `${window.API_BASE}/admin/quotes/${quoteId}/approve`;
         console.log('URL:', url);
         console.log('Method: PUT');
-        console.log('Headers:', {
-            'Authorization': 'Bearer ***' + token.substring(token.length - 4),
-            'Content-Type': 'application/json'
-        });
         
         const response = await fetch(url, {
             method: 'PUT',
@@ -530,6 +534,9 @@ async function handleApproveQuote() {
         if (modal) modal.hide();
         
         showSuccess('הצעת המחיר אושרה בהצלחה!');
+        
+        // Reload all quotes and refresh pending tab
+        await loadAllQuotes();
         loadPendingQuotes();
     } catch (error) {
         console.error('Error approving quote:', error);
@@ -598,6 +605,9 @@ async function handleRejectQuote() {
         if (modal) modal.hide();
         
         showSuccess('הצעת המחיר נדחתה בהצלחה!');
+        
+        // Reload all quotes and refresh pending tab
+        await loadAllQuotes();
         loadPendingQuotes();
     } catch (error) {
         console.error('Error rejecting quote:', error);
@@ -607,6 +617,7 @@ async function handleRejectQuote() {
 
 /**
  * Load history quotes with filters
+ * Uses allQuotes and applies status/date filters
  */
 async function loadHistoryQuotes() {
     const historyLoading = document.getElementById('historyLoading');
@@ -616,53 +627,32 @@ async function loadHistoryQuotes() {
     try {
         if (historyLoading) historyLoading.style.display = 'flex';
         
+        // Reload all quotes if empty (first load or refresh)
+        if (allQuotes.length === 0) {
+            console.log('allQuotes is empty, reloading...');
+            await loadAllQuotes();
+        }
+        
+        // Get filter values
         const statusFilter = document.getElementById('historyStatusFilter')?.value || '';
         const dateFrom = document.getElementById('historyDateFrom')?.value || '';
         const dateTo = document.getElementById('historyDateTo')?.value || '';
         
-        // Get token fresh
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (!token) {
-            alert('פג תוקף התחברות. אנא התחבר שוב.');
-            window.location.href = '/login.html';
-            return;
-        }
+        console.log('=== FILTERING HISTORY QUOTES ===');
+        console.log('All quotes count:', allQuotes.length);
+        console.log('Status filter:', statusFilter || 'none');
+        console.log('Date from:', dateFrom || 'none');
+        console.log('Date to:', dateTo || 'none');
         
-        // Build query params
-        const params = new URLSearchParams();
-        if (statusFilter) params.append('status', statusFilter);
-        if (dateFrom) params.append('dateFrom', dateFrom);
-        if (dateTo) params.append('dateTo', dateTo);
+        // Apply filters using shared function
+        const filteredQuotes = filterQuotes(allQuotes, statusFilter, dateFrom, dateTo);
         
-        const queryString = params.toString();
-        const url = `${window.API_BASE}/admin/quote-requests${queryString ? '?' + queryString : ''}`;
-        console.log('Loading history from:', url);
-        
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (response.status === 401) {
-            alert('פג תוקף התחברות. אנא התחבר שוב.');
-            localStorage.removeItem('token');
-            sessionStorage.removeItem('token');
-            window.location.href = '/login.html';
-            return;
-        }
-        
-        if (!response.ok) {
-            throw new Error('שגיאה בטעינת היסטוריה');
-        }
-        
-        const quotes = await response.json();
+        console.log('Filtered quotes count:', filteredQuotes.length);
+        console.log('=== END FILTERING ===');
         
         if (historyLoading) historyLoading.style.display = 'none';
         
-        if (!quotes || quotes.length === 0) {
+        if (!filteredQuotes || filteredQuotes.length === 0) {
             if (historyEmpty) historyEmpty.style.display = 'block';
             if (historyList) historyList.innerHTML = '';
             return;
@@ -671,7 +661,7 @@ async function loadHistoryQuotes() {
         if (historyEmpty) historyEmpty.style.display = 'none';
         
         if (historyList) {
-            historyList.innerHTML = quotes.map(quote => {
+            historyList.innerHTML = filteredQuotes.map(quote => {
                 // Use mapStatus for consistent Hebrew labels and CSS classes
                 const statusInfo = mapStatus(quote.status);
                 

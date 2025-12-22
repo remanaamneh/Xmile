@@ -86,64 +86,9 @@ public class WorkerOfferService {
      * Find eligible workers for an event based on location matching
      */
     private List<WorkerProfile> findEligibleWorkers(Event event, Integer requiredCount) {
-        // Get all active workers
-        List<WorkerProfile> allWorkers = workerProfileRepository.findAll().stream()
-                .filter(wp -> Boolean.TRUE.equals(wp.getIsActive()))
-                .filter(wp -> wp.getUser() != null && wp.getUser().getRole() == Role.WORKER)
-                .collect(Collectors.toList());
-        
-        // If no location data on event, return all active workers (up to requiredCount * 2 for selection)
-        if (event.getLocationLat() == null || event.getLocationLng() == null) {
-            int limit = requiredCount != null ? requiredCount * 2 : 20;
-            return allWorkers.stream()
-                    .limit(limit)
-                    .collect(Collectors.toList());
-        }
-        
-        // Filter by location: same city or within radius
-        String eventCity = extractCityFromLocation(event.getLocation());
-        
-        List<WorkerProfile> filtered = allWorkers.stream()
-                .filter(wp -> {
-                    // Same city match
-                    if (eventCity != null && wp.getCity() != null && 
-                        eventCity.equalsIgnoreCase(wp.getCity())) {
-                        return true;
-                    }
-                    
-                    // Distance-based matching (if coordinates available)
-                    if (wp.getHomeLat() != null && wp.getHomeLng() != null) {
-                        BigDecimal distance = calculateDistance(
-                                event.getLocationLat(), event.getLocationLng(),
-                                wp.getHomeLat(), wp.getHomeLng()
-                        );
-                        // Within 50km radius
-                        return distance != null && distance.compareTo(new BigDecimal("50")) <= 0;
-                    }
-                    
-                    // If worker has no location, include them (fallback)
-                    return true;
-                })
-                .sorted((a, b) -> {
-                    // Sort by distance (workers with coordinates first, then by distance)
-                    BigDecimal distA = calculateDistance(
-                            event.getLocationLat(), event.getLocationLng(),
-                            a.getHomeLat(), a.getHomeLng()
-                    );
-                    BigDecimal distB = calculateDistance(
-                            event.getLocationLat(), event.getLocationLng(),
-                            b.getHomeLat(), b.getHomeLng()
-                    );
-                    
-                    if (distA == null && distB == null) return 0;
-                    if (distA == null) return 1;
-                    if (distB == null) return -1;
-                    return distA.compareTo(distB);
-                })
-                .limit(requiredCount != null ? requiredCount * 2 : 20) // Get more than needed for selection
-                .collect(Collectors.toList());
-        
-        return filtered;
+        // WORKER role removed from system - return empty list
+        // This service is deprecated since WORKER role no longer exists
+        return java.util.Collections.emptyList();
     }
 
     /**
