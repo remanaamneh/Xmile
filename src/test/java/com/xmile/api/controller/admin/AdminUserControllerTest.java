@@ -104,13 +104,13 @@ class AdminUserControllerTest {
                 .updatedAt(LocalDateTime.now())
                 .build()));
 
-        Mockito.when(adminUserService.updateRole(Mockito.eq(5L), Mockito.eq(Role.WORKER)))
+        Mockito.when(adminUserService.updateRole(Mockito.eq(5L), Mockito.eq(Role.CLIENT)))
                 .thenReturn(User.builder()
                         .id(5L)
                         .name("U")
                         .email("u@example.com")
                         .passwordHash("x")
-                        .role(Role.WORKER)
+                        .role(Role.CLIENT)
                         .isActive(true)
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
@@ -119,9 +119,9 @@ class AdminUserControllerTest {
         mockMvc.perform(patch("/admin/users/5/role")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"role\":\"WORKER\"}"))
+                        .content("{\"role\":\"CLIENT\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.role").value("WORKER"));
+                .andExpect(jsonPath("$.data.role").value("CLIENT"));
     }
 }
 

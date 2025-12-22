@@ -30,11 +30,14 @@ public class AuthService {
             throw new IllegalArgumentException("Email already exists");
         }
 
+        // Always create CLIENT users - registration is only for clients
+        Role role = Role.CLIENT;
+
         User user = User.builder()
                 .name(request.getName())
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(Role.CLIENT)
+                .role(role)
                 .isActive(true)
                 .build();
 
@@ -98,4 +101,3 @@ public class AuthService {
     }
 
 }
-

@@ -16,6 +16,8 @@ public class WorkerProfileDTO {
     private Long userId;
     private String phone;
     private String city; // City/area for matching
+    private String locationText; // Detailed location text
+    private String availability; // Availability info
     private String skills; // Skills/tags (comma-separated or JSON)
     private BigDecimal homeLat;
     private BigDecimal homeLng;

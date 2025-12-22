@@ -2,8 +2,8 @@
  * CONFIG
  * Note: API_BASE is loaded from config.js
  *********************************/
-// API_BASE is defined in config.js (loaded before this file)
-const AUTH_URL = `${API_BASE}/auth`;
+// API_BASE is defined in config.js (loaded before this file) as window.API_BASE
+const AUTH_URL = `${window.API_BASE}/auth`;
 
 /*********************************
  * ROLE CONFIG
@@ -20,12 +20,6 @@ const roleConfig = {
         icon: 'fa-building',
         subtitle: 'התחבר כלקוח עסקי',
         color: '#4285f4'
-    },
-    'EMPLOYEE': {
-        text: 'עובד',
-        icon: 'fa-user-tie',
-        subtitle: 'התחבר כעובד',
-        color: '#34a853'
     }
 };
 
@@ -84,9 +78,9 @@ function displayRole(role) {
 /*********************************
  * GO BACK TO SELECTION
  *********************************/
-function goBackToSelection() {
+window.goBackToSelection = function() {
     window.location.href = '/select-role.html';
-}
+};
 
 /*********************************
  * LOGIN
@@ -118,30 +112,31 @@ async function handleLogin(e) {
         if (data.token) {
             localStorage.setItem("token", data.token);
             
-            // Get selected role from session before clearing
-            const selectedRole = sessionStorage.getItem('selectedRole');
+            // Get user role from API response (this is the source of truth)
+            const userRole = data.role;
+            
+            // Clear selected role from session as we use the actual role from API
             sessionStorage.removeItem('selectedRole');
             
-            // Get user role from API response or fallback to selected role
-            const userRole = data.role || selectedRole;
+            console.log("=== LOGIN SUCCESS ===");
+            console.log("User role from API:", userRole);
             
-            // Redirect based on role
-            if (userRole === 'ADMIN' || selectedRole === 'ADMIN') {
-                window.location.href = "/manager-dashboard.html";
-            } else if (userRole === 'CLIENT' || selectedRole === 'CLIENT') {
-                window.location.href = "/client-dashboard.html";
-            } else if (userRole === 'WORKER' || selectedRole === 'WORKER' || selectedRole === 'EMPLOYEE') {
-                // Redirect to worker profile page (they can navigate to offers from there)
-                window.location.href = "/worker-profile.html";
+            // Redirect based on role from API response
+            let redirectUrl = null;
+            
+            if (userRole === 'ADMIN') {
+                redirectUrl = "/manager-dashboard.html";
+            } else if (userRole === 'CLIENT') {
+                redirectUrl = "/client-dashboard.html";
             } else {
-                // Default fallback - try to redirect based on selected role
-                if (selectedRole === 'EMPLOYEE') {
-                    window.location.href = "/worker-profile.html";
-                } else {
-                    // Unknown role - redirect to role selection
-                    window.location.href = "/select-role.html";
-                }
+                console.warn("Unknown role, redirecting to role selection");
+                redirectUrl = "/select-role.html";
             }
+            
+            console.log("Redirecting to:", redirectUrl);
+            console.log("=== END LOGIN SUCCESS ===");
+            
+            window.location.href = redirectUrl;
         } else {
             throw new Error("לא התקבל טוקן");
         }
@@ -167,6 +162,8 @@ async function handleRegister(e) {
         password: password
     };
 
+    console.log("Register payload:", payload);
+
     try {
         const res = await fetch(`${AUTH_URL}/register`, {
             method: "POST",
@@ -175,9 +172,18 @@ async function handleRegister(e) {
         });
 
         if (!res.ok) {
-            const errorText = await res.text();
-            throw new Error(errorText || "Registration failed");
+            const errorText = await res.text().catch(() => 'Registration failed');
+            let errorData;
+            try {
+                errorData = JSON.parse(errorText);
+            } catch {
+                errorData = { message: errorText };
+            }
+            throw new Error(errorData.message || errorData.error || "Registration failed");
         }
+
+        const data = await res.json();
+        console.log("Registration successful, role:", data.role);
 
         alert("ההרשמה הצליחה! אנא התחבר.");
         
@@ -190,26 +196,27 @@ async function handleRegister(e) {
         e.target.reset();
     } catch (err) {
         alert("שגיאה: " + err.message);
-        console.error(err);
+        console.error("Registration error:", err);
     }
 }
 
-/*********************************
- * GOOGLE LOGIN
- *********************************/
-function handleGoogleLogin() {
-    // Placeholder for Google OAuth integration
-    alert("התחברות עם Google תושק בקרוב");
-}
 
 /*********************************
  * SHOW SIGN UP
  *********************************/
-function showSignUp() {
+window.showSignUp = function() {
     if (window.bootstrap) {
         const modalEl = document.getElementById("signUpModal");
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
     }
-}
+};
+
+/*********************************
+ * GOOGLE LOGIN (window function)
+ *********************************/
+window.handleGoogleLogin = function() {
+    // Placeholder for Google OAuth integration
+    alert("התחברות עם Google תושק בקרוב");
+};
 

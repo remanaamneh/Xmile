@@ -28,6 +28,12 @@ public class WorkerProfile {
     @Column(length = 100)
     private String city; // City/area for matching
 
+    @Column(name = "location_text", length = 255)
+    private String locationText; // Detailed location text
+
+    @Column(length = 100)
+    private String availability; // Availability info
+
     @Column(columnDefinition = "TEXT")
     private String skills; // Skills/tags (comma-separated or JSON)
 

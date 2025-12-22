@@ -35,6 +35,7 @@ public class AdminQuoteResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime approvedAt;
+    private LocalDateTime rejectedAt;
     
     // Client information
     private Long clientUserId;

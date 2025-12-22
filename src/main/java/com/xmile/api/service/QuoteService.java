@@ -602,12 +602,20 @@ public class QuoteService {
      */
     @Transactional
     public QuoteRequestDTO approveQuoteByAdmin(Long quoteId, AdminApproveQuoteDTO request) {
+        // Signature log to identify updated code is running
+        System.out.println("=== APPROVE QUOTE BY ADMIN (UPDATED CODE v1.0.7) ===");
+        System.out.println("Quote ID: " + quoteId);
+        
         EventQuote quote = quoteRepository.findByIdWithRelations(quoteId)
                 .orElseThrow(() -> new RuntimeException("Quote request not found"));
 
-        // Only QUOTE_PENDING quotes can be approved
+        // Log currentStatus before validation
         EventQuoteStatus currentStatus = quote.getStatus();
+        System.out.println("Approve quoteId=" + quoteId + " currentStatus=" + currentStatus);
+
+        // Only QUOTE_PENDING quotes can be approved
         if (currentStatus != EventQuoteStatus.QUOTE_PENDING) {
+            System.err.println("Invalid status for approval. Quote ID: " + quoteId + ", Current Status: " + currentStatus);
             throw new IllegalStateException("Only quotes with status QUOTE_PENDING can be approved. Current status: " + currentStatus);
         }
 
@@ -661,25 +669,47 @@ public class QuoteService {
 
     /**
      * Admin rejects a quote request
+     * Allows rejection for quotes with status: SENT_TO_MANAGER, MANAGER_REVIEW, or QUOTE_PENDING
      */
     @Transactional
     public QuoteRequestDTO rejectQuoteByAdmin(Long quoteId, AdminRejectQuoteDTO request) {
+        // Signature log to identify updated code is running
+        System.out.println("=== REJECT QUOTE BY ADMIN (UPDATED CODE v1.0.7) ===");
+        System.out.println("Quote ID: " + quoteId);
+        System.out.println("Rejection reason: " + request.getReason());
+        
         EventQuote quote = quoteRepository.findByIdWithRelations(quoteId)
                 .orElseThrow(() -> new RuntimeException("Quote request not found"));
 
-        // Only QUOTE_PENDING quotes can be rejected
+        // Log currentStatus before validation
         EventQuoteStatus currentStatus = quote.getStatus();
-        if (currentStatus != EventQuoteStatus.QUOTE_PENDING) {
-            throw new IllegalStateException("Only quotes with status QUOTE_PENDING can be rejected. Current status: " + currentStatus);
+        System.out.println("Reject quoteId=" + quoteId + " currentStatus=" + currentStatus);
+
+        // Allow rejection for pending statuses: SENT_TO_MANAGER, MANAGER_REVIEW, or QUOTE_PENDING
+        if (!(currentStatus == EventQuoteStatus.SENT_TO_MANAGER
+           || currentStatus == EventQuoteStatus.MANAGER_REVIEW
+           || currentStatus == EventQuoteStatus.QUOTE_PENDING)) {
+            System.err.println("Invalid status for rejection: " + currentStatus);
+            throw new IllegalStateException(
+                "Only quotes with status SENT_TO_MANAGER, MANAGER_REVIEW, or QUOTE_PENDING can be rejected. Current status: " + currentStatus
+            );
         }
 
         // Update status to REJECTED
         quote.setStatus(EventQuoteStatus.REJECTED);
+        quote.setApprovedAt(null);
+        quote.setRejectedAt(LocalDateTime.now());
+        quote.setUpdatedAt(LocalDateTime.now());
         
-        // Store rejection reason in notes field (append if notes exist)
+        // Store rejection reason in dedicated column (preferred) and also append to notes
+        quote.setAdminRejectionReason(request.getReason());
         String existingNotes = quote.getNotes() != null ? quote.getNotes() : "";
         quote.setNotes(existingNotes + (existingNotes.isEmpty() ? "" : "\n\n") + 
                       "סיבת דחייה: " + request.getReason());
+
+        System.out.println("Setting status to REJECTED");
+        System.out.println("Setting rejected_at to: " + quote.getRejectedAt());
+        System.out.println("Setting admin_rejection_reason to: " + quote.getAdminRejectionReason());
 
         quote = quoteRepository.save(quote);
         
@@ -687,10 +717,15 @@ public class QuoteService {
         quote = quoteRepository.findByIdWithRelations(quote.getId())
                 .orElseThrow(() -> new RuntimeException("Failed to reload quote with relations"));
 
-        // Update event status
+        // Update event status to CANCELLED when quote is rejected
         Event event = quote.getEvent();
-        event.setStatus(EventStatus.CANCELLED);
-        eventRepository.save(event);
+        if (event != null) {
+            event.setStatus(EventStatus.CANCELLED);
+            eventRepository.save(event);
+        }
+
+        System.out.println("Quote rejected successfully. Quote ID: " + quote.getId() + ", Final status: " + quote.getStatus());
+        System.out.println("=== END REJECT QUOTE BY ADMIN ===");
 
         return toQuoteRequestDTO(quote);
     }

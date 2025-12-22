@@ -213,6 +213,7 @@ public class AdminQuoteControllerTest {
                 .status("REJECTED")
                 .adminRejectionReason("Price too high")
                 .approvedAt(null)
+                .rejectedAt(LocalDateTime.now())
                 .build();
 
         Mockito.when(adminQuoteService.rejectQuote(quoteId, rejectRequest))
@@ -225,7 +226,60 @@ public class AdminQuoteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REJECTED"))
                 .andExpect(jsonPath("$.adminRejectionReason").value("Price too high"))
-                .andExpect(jsonPath("$.approvedAt").isEmpty());
+                .andExpect(jsonPath("$.approvedAt").isEmpty())
+                .andExpect(jsonPath("$.rejectedAt").exists());
+    }
+
+    @Test
+    void testRejectQuote_WithSENT_TO_MANAGER_Status() throws Exception {
+        AdminRejectQuoteDTO rejectRequest = new AdminRejectQuoteDTO();
+        rejectRequest.setReason("Not suitable for our services");
+
+        AdminQuoteResponse rejectedResponse = AdminQuoteResponse.builder()
+                .id(quoteId)
+                .status("REJECTED")
+                .adminRejectionReason("Not suitable for our services")
+                .rejectedAt(LocalDateTime.now())
+                .build();
+
+        // Mock service to accept SENT_TO_MANAGER status
+        Mockito.when(adminQuoteService.rejectQuote(quoteId, rejectRequest))
+                .thenReturn(rejectedResponse);
+
+        mockMvc.perform(put("/admin/quotes/" + quoteId + "/reject")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(rejectRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REJECTED"))
+                .andExpect(jsonPath("$.adminRejectionReason").value("Not suitable for our services"))
+                .andExpect(jsonPath("$.rejectedAt").exists());
+    }
+
+    @Test
+    void testRejectQuote_WithMANAGER_REVIEW_Status() throws Exception {
+        AdminRejectQuoteDTO rejectRequest = new AdminRejectQuoteDTO();
+        rejectRequest.setReason("Budget constraints");
+
+        AdminQuoteResponse rejectedResponse = AdminQuoteResponse.builder()
+                .id(quoteId)
+                .status("REJECTED")
+                .adminRejectionReason("Budget constraints")
+                .rejectedAt(LocalDateTime.now())
+                .build();
+
+        // Mock service to accept MANAGER_REVIEW status
+        Mockito.when(adminQuoteService.rejectQuote(quoteId, rejectRequest))
+                .thenReturn(rejectedResponse);
+
+        mockMvc.perform(put("/admin/quotes/" + quoteId + "/reject")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(rejectRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REJECTED"))
+                .andExpect(jsonPath("$.adminRejectionReason").value("Budget constraints"))
+                .andExpect(jsonPath("$.rejectedAt").exists());
     }
 
     @Test

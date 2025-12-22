@@ -9,7 +9,8 @@ package com.xmile.api.model;
 public enum EventQuoteStatus {
     DRAFT,          // Customer editing quote
     QUOTE_PENDING,  // 🔥 חובה – ממתין לאישור מנהל
-    SENT_TO_MANAGER, // Legacy: Customer sent to manager (treated as QUOTE_PENDING)
+    SENT_TO_MANAGER, // Customer sent to manager (pending approval)
+    MANAGER_REVIEW,  // Manager is reviewing the quote (pending approval)
     APPROVED,        // Admin approved and published to workers
     REJECTED,        // Admin rejected
     COMPLETED,       // Event completed

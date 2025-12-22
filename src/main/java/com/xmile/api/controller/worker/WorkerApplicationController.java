@@ -18,7 +18,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 
-@RestController
+// DISABLED: WORKER role removed from system
+//@RestController
 @RequestMapping("/api/worker")
 @RequiredArgsConstructor
 public class WorkerApplicationController {

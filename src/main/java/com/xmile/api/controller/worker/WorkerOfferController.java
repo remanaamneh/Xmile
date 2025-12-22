@@ -12,10 +12,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@RestController
+// DISABLED: WORKER role removed from system
+//@RestController
 @RequestMapping("/worker/offers")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('WORKER')")
+//@PreAuthorize("hasRole('WORKER')")
 public class WorkerOfferController {
 
     private final WorkerOfferService workerOfferService;
