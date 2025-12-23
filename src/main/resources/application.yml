@@ -12,9 +12,9 @@ spring:
       throw-exception-if-no-handler-found: false
   
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:xmile_db}?useSSL=${DB_USE_SSL:false}&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: ${DB_USER:root}
-    password: ${DB_PASSWORD:Rn@318695681}
+    url: jdbc:mysql://localhost:3306/xmile_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: rootpassword
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 
