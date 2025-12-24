@@ -80,13 +80,13 @@ public class QuoteService {
             // Set requested workers (default to 0 if not provided)
             Integer requestedWorkers = request.getRequestedWorkers() != null ? request.getRequestedWorkers() : 0;
 
-            // Create quote as ESTIMATE (הערכה ראשונית)
+            // Create quote and send to manager for approval
             EventQuote.EventQuoteBuilder quoteBuilder = EventQuote.builder()
                     .event(event)
                     .quoteAmount(basePrice)
                     .currency("ILS")
                     .xmileCommissionPercent(new BigDecimal("10.00"))
-                    .status(EventQuoteStatus.DRAFT)  // הערכה ראשונית
+                    .status(EventQuoteStatus.QUOTE_PENDING)  // נשלח למנהל לאישור
                     .notes(request.getNotes())
                     .requestedWorkers(requestedWorkers);
             

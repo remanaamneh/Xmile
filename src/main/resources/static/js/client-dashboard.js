@@ -295,6 +295,9 @@ function filterEvents(filter) {
     renderEvents();
 }
 
+// Make filterEvents globally accessible for onclick handlers
+window.filterEvents = filterEvents;
+
 function getFilterText(filter) {
     const filterMap = {
         'all': 'הכל',
@@ -328,7 +331,8 @@ function renderEvents() {
         filteredQuotes = currentQuotes.filter(q => {
             const status = q.status;
             // Include all pending-related statuses
-            const matches = status === 'submitted' || 
+            const matches = status === 'QUOTE_PENDING' ||
+                           status === 'submitted' || 
                            status === 'SUBMITTED' ||
                            status === 'pending_approval' ||
                            status === 'PENDING_APPROVAL' ||
@@ -431,7 +435,8 @@ function renderEvents() {
             const quote = item.data;
             const status = quote.status || '';
             const isDraft = status === 'DRAFT' || status === 'draft';
-            const isPending = status === 'SENT_TO_MANAGER' || 
+            const isPending = status === 'QUOTE_PENDING' ||
+                            status === 'SENT_TO_MANAGER' || 
                             status === 'MANAGER_REVIEW' || 
                             status === 'pending_approval' || 
                             status === 'PENDING_APPROVAL' ||
@@ -557,9 +562,6 @@ function renderEvents() {
                             <button class="btn-event-action btn-send-message" onclick="openMessageModalForEvent(${event.id})">
                                 <i class="fas fa-envelope"></i> שלח הודעה
                             </button>
-                            <button class="btn-event-action btn-primary-action" data-event-id="${event.id}" onclick="openQuoteModalForEvent(this)">
-                                <i class="fas fa-calculator"></i> צור הצעת מחיר
-                            </button>
                         ` : ''}
                         <button class="btn-event-action btn-danger-action" data-event-id="${event.id}" onclick="deleteEvent(this)">
                             <i class="fas fa-trash"></i> מחק
@@ -574,7 +576,7 @@ function renderEvents() {
 function getStatusText(status) {
     const statusMap = {
         "DRAFT": "טיוטה",
-        "QUOTE_PENDING": "ממתין להצעת מחיר",
+        "QUOTE_PENDING": "ממתין לאישור מנהל",
         "PENDING_APPROVAL": "ממתין לאישור",
         "APPROVED": "מאושר",
         "CONFIRMED": "מאושר",
@@ -955,35 +957,11 @@ function openMessageModal() {
 function openMessageModalForEvent(eventId) {
     console.log('openMessageModalForEvent called with eventId:', eventId);
     
-    const modalElement = document.getElementById('messageModal');
-    if (!modalElement) {
-        console.error('Message modal element not found');
-        return;
-    }
-    
-    selectedEventId = eventId;
-    resetMessageWizard();
-    
-    if (typeof bootstrap === 'undefined') {
-        console.error('Bootstrap is not loaded');
-        return;
-    }
-    
-    try {
-        const modal = new bootstrap.Modal(modalElement);
-        modal.show();
-        
-        loadEventsForMessage();
-        // Auto-select the event
-        setTimeout(() => {
-            const selectEl = document.getElementById('selectedEvent');
-            if (selectEl) {
-                selectEl.value = eventId;
-                nextStep(2);
-            }
-        }, 100);
-    } catch (err) {
-        console.error('Error showing message modal:', err);
+    // Navigate to campaign builder page with eventId
+    if (eventId) {
+        window.location.href = `/client-campaign-builder.html?eventId=${eventId}`;
+    } else {
+        window.location.href = '/client-campaign-builder.html';
     }
 }
 

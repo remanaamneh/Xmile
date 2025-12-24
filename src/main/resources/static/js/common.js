@@ -153,6 +153,14 @@ function mapStatus(status) {
         };
     }
     
+    // Quote Pending (waiting for manager approval)
+    if (statusUpper === 'QUOTE_PENDING') {
+        return {
+            heLabel: 'ממתין לאישור מנהל',
+            cssClass: 'status-pending'
+        };
+    }
+    
     // Draft (gray)
     if (statusUpper === 'DRAFT') {
         return {

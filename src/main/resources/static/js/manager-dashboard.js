@@ -18,7 +18,7 @@ let authToken = null;
 let allQuotes = [];
 
 // Pending statuses that should appear in "בקשות לאישור" tab
-const PENDING_STATUSES = ['SENT_TO_MANAGER', 'MANAGER_REVIEW'];
+const PENDING_STATUSES = ['QUOTE_PENDING', 'SENT_TO_MANAGER', 'MANAGER_REVIEW'];
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('=== MANAGER DASHBOARD INIT ===');
