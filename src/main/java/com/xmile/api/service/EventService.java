@@ -4,13 +4,13 @@ import com.xmile.api.dto.EventRequest;
 import com.xmile.api.dto.EventResponse;
 import com.xmile.api.dto.MyEventResponse;
 import com.xmile.api.model.Event;
-import com.xmile.api.model.EventQuote;
 import com.xmile.api.model.EventQuoteStatus;
 import com.xmile.api.model.EventStatus;
 import com.xmile.api.model.User;
 import com.xmile.api.repository.EventQuoteRepository;
 import com.xmile.api.repository.EventRepository;
 import com.xmile.api.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +26,7 @@ public class EventService {
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
     private final EventQuoteRepository eventQuoteRepository;
+    private final EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public List<EventResponse> getEventsByUserId(Long userId) {
@@ -170,6 +171,7 @@ public class EventService {
 
     @Transactional
     public void deleteEvent(Long id, Long userId) {
+        // First, verify ownership
         Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
 
@@ -178,6 +180,16 @@ public class EventService {
             throw new RuntimeException("Unauthorized access to event");
         }
 
+        // Clear accepted_quote_id using EntityManager to ensure it's updated in DB before deletion
+        // The accepted_quote_id foreign key doesn't have ON DELETE SET NULL, so we need to clear it manually
+        entityManager.createNativeQuery("UPDATE events SET accepted_quote_id = NULL WHERE id = :eventId")
+                .setParameter("eventId", id)
+                .executeUpdate();
+        
+        // Flush to ensure the update is committed before deletion
+        entityManager.flush();
+        
+        // Now delete the event - accepted_quote_id is already NULL
         eventRepository.delete(event);
     }
 

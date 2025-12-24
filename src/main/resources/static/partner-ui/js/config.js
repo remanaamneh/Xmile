@@ -22,8 +22,8 @@ function getApiBaseUrl() {
         return window.location.origin;
     }
     
-    // Default: localhost for development
-    return 'http://localhost:8080';
+    // Default: use relative URLs (works with any domain)
+    return '';
 }
 
 // Export the API base URL

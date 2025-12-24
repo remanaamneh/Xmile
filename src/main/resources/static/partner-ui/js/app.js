@@ -4,7 +4,8 @@
  *********************************/
 // API_BASE is defined in config.js (loaded before this file)
 // For partner-ui, we use /api prefix
-const PARTNER_API_BASE = API_BASE + (API_BASE.includes('localhost') ? '/api' : '');
+// If API_BASE is empty (relative URLs), use /api directly
+const PARTNER_API_BASE = API_BASE ? (API_BASE.includes('localhost') ? API_BASE + '/api' : API_BASE) : '/api';
 const AUTH_URL = `${PARTNER_API_BASE}/auth`;
 const EVENTS_URL = `${PARTNER_API_BASE}/events`;
 const REVIEWS_URL = `${PARTNER_API_BASE}/reviews`;
