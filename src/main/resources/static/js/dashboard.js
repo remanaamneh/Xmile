@@ -20,6 +20,7 @@ const formatDate = (dateString) => {
 const getStatusText = (status) => {
     const statusMap = {
         "DRAFT": "טיוטה",
+        "QUOTE_PENDING": "ממתין לאישור מנהל",
         "ACTIVE": "פעיל",
         "CONFIRMED": "מאושר",
         "CANCELLED": "בוטל",
