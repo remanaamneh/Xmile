@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>XMILE | יצירת הודעה</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="css/common.css"/>
+  <link rel="stylesheet" href="styles/client-campaign-builder.css"/>
+</head>
+<body>
+  <div class="page">
+    <aside class="side">
+      <div class="sideTitle">יצירת הודעה</div>
+      <div class="steps">
+        <div class="step active" data-step="1">1. בחר אירוע</div>
+        <div class="step" data-step="2">2. בחר טקסט</div>
+        <div class="step" data-step="3">3. עריכת טקסט</div>
+        <div class="step" data-step="4">4. בחירת תמונה</div>
+        <div class="step" data-step="5">5. ערוץ שליחה</div>
+        <div class="step" data-step="6">6. סיכום ושליחה</div>
+      </div>
+
+      <button class="btn danger" id="btnBackDashboard">
+        <i class="fas fa-arrow-right"></i> חזרה לדשבורד
+      </button>
+    </aside>
+
+    <main class="content">
+      <h2>יצירת הודעה למשתתפים</h2>
+      <p class="muted">בחרי אירוע, טקסט, תמונה ואז שלחי.</p>
+
+      <!-- STEP 1: Choose Event -->
+      <section class="card stepPane" id="step1">
+        <h3>בחרי אירוע</h3>
+        <label class="lbl">אירוע:</label>
+        <select id="eventSelect" class="form-select">
+          <option value="">טוען אירועים...</option>
+        </select>
+        <label class="lbl">שם הודעה:</label>
+        <input id="campaignName" class="form-control" placeholder="לדוגמה: עדכון חשוב לאירוע"/>
+        
+        <div class="nav">
+          <button class="btn btn-primary" id="btn1Next">המשך</button>
+        </div>
+      </section>
+
+      <!-- STEP 2: Choose AI Content -->
+      <section class="card stepPane hidden" id="step2">
+        <h3>בחרי טקסט להודעה</h3>
+        <p class="muted">בחרי אחת מהאופציות או צרי חדש עם AI</p>
+        
+        <div class="mb-3">
+          <textarea id="aiPrompt" class="form-control" rows="3" placeholder="תארי מה את רוצה להגיד למשתתפים..."></textarea>
+          <button class="btn btn-info mt-2" id="btnGenerateAI">
+            <i class="fas fa-magic"></i> צור תוכן עם AI
+          </button>
+        </div>
+
+        <div class="grid3" id="contentOptionsGrid"></div>
+        <div class="muted mt-2" id="loadingContent" style="display:none;">
+          <i class="fas fa-spinner fa-spin"></i> יוצר תוכן...
+        </div>
+
+        <div class="nav">
+          <button class="btn btn-secondary" id="btn2Back">חזור</button>
+          <button class="btn btn-primary" id="btn2Next">המשך</button>
+        </div>
+      </section>
+
+      <!-- STEP 3: Edit Content -->
+      <section class="card stepPane hidden" id="step3">
+        <h3>עריכת הטקסט</h3>
+        <label class="lbl">נושא (למייל):</label>
+        <input id="subject" class="form-control" placeholder="נושא הודעה"/>
+
+        <label class="lbl">תוכן ההודעה (ניתן לעריכה):</label>
+        <textarea id="messageText" class="form-control" rows="8" placeholder="כאן התוכן..."></textarea>
+
+        <div class="nav">
+          <button class="btn btn-secondary" id="btn3Back">חזור</button>
+          <button class="btn btn-primary" id="btn3Next">המשך</button>
+        </div>
+      </section>
+
+      <!-- STEP 4: Choose Template -->
+      <section class="card stepPane hidden" id="step4">
+        <h3>בחרי תמונה להודעה</h3>
+        <p class="muted">בחרי תמונה אחת. היא תופיע בפוסטר/תצוגה מקדימה.</p>
+        
+        <div class="mb-3">
+          <button class="btn btn-secondary" id="btnFindImages">
+            <i class="fas fa-search"></i> חפש תמונות לפי הטקסט
+          </button>
+        </div>
+
+        <div class="imgGrid" id="templateGrid"></div>
+        <div class="muted mt-2" id="loadingTemplates" style="display:none;">
+          <i class="fas fa-spinner fa-spin"></i> טוען תמונות...
+        </div>
+
+        <div class="previewRow">
+          <div class="previewBox">
+            <div class="previewTitle">תצוגה מקדימה</div>
+            <img id="chosenImg" style="display:none;"/>
+          </div>
+        </div>
+
+        <div class="nav">
+          <button class="btn btn-secondary" id="btn4Back">חזור</button>
+          <button class="btn btn-primary" id="btn4Next">המשך</button>
+        </div>
+      </section>
+
+      <!-- STEP 5: Choose Channel -->
+      <section class="card stepPane hidden" id="step5">
+        <h3>בחרי ערוץ שליחה</h3>
+        <div class="row">
+          <button class="chip" data-chan="EMAIL">
+            <i class="fas fa-envelope"></i> Email
+          </button>
+          <button class="chip" data-chan="WHATSAPP">
+            <i class="fab fa-whatsapp"></i> WhatsApp
+          </button>
+          <button class="chip" data-chan="SMS">
+            <i class="fas fa-sms"></i> SMS
+          </button>
+        </div>
+
+        <div class="nav">
+          <button class="btn btn-secondary" id="btn5Back">חזור</button>
+          <button class="btn btn-primary" id="btn5Next">המשך</button>
+        </div>
+      </section>
+
+      <!-- STEP 6: Summary & Preview -->
+      <section class="card stepPane hidden" id="step6">
+        <h3>תצוגה מקדימה ושליחה</h3>
+
+        <!-- Message Preview Tabs -->
+        <div class="preview-section">
+          <h4><i class="fas fa-eye"></i> תצוגה מקדימה</h4>
+          
+          <div class="preview-tabs">
+            <button class="preview-tab active" data-preview="sms">
+              <i class="fas fa-sms"></i> SMS
+            </button>
+            <button class="preview-tab" data-preview="email">
+              <i class="fas fa-envelope"></i> Email
+            </button>
+            <button class="preview-tab" data-preview="whatsapp">
+              <i class="fab fa-whatsapp"></i> WhatsApp
+            </button>
+          </div>
+
+          <div class="preview-content">
+            <div class="preview-pane active" id="previewPaneSMS">
+              <div id="previewSMS" class="message-preview-card"></div>
+            </div>
+            <div class="preview-pane" id="previewPaneEmail">
+              <div id="previewEmail" class="message-preview-card"></div>
+            </div>
+            <div class="preview-pane" id="previewPaneWhatsApp">
+              <div id="previewWhatsApp" class="message-preview-card"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recipients Input -->
+        <div class="mb-3">
+          <label class="lbl">הוסף משתתפים (Email/Phone, אחד בכל שורה):</label>
+          <textarea id="recipientsList" class="form-control" rows="5" placeholder="user@example.com&#10;+972501234567"></textarea>
+        </div>
+
+        <button class="btn btn-success btn-lg w-100 mb-2" id="btnSend">
+          <i class="fas fa-paper-plane"></i> 🚀 שליחה
+        </button>
+        <div class="muted text-center" id="sendStatus"></div>
+
+        <div class="nav">
+          <button class="btn btn-secondary" id="btn6Back">חזור</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/client-campaign-builder.js"></script>
+</body>
+</html>
+

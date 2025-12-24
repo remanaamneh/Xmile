@@ -1081,7 +1081,21 @@ function prevStep(stepNum) {
 }
 
 async function generateAIMessages() {
-    const request = document.getElementById('aiMessageRequest').value;
+    // Check if modal is open
+    const modal = getMessageModal();
+    if (!modal || !modal.classList.contains('show')) {
+        console.warn('generateAIMessages: message modal is not open');
+        alert('אנא פתח את חלון שליחת ההודעה תחילה');
+        return;
+    }
+    
+    const aiMessageRequestEl = modal.querySelector('#aiMessageRequest');
+    if (!aiMessageRequestEl) {
+        console.error('aiMessageRequest element not found - modal structure may be broken');
+        alert('שגיאה: לא נמצא שדה בקשת הודעה. אנא רענן את הדף.');
+        return;
+    }
+    const request = aiMessageRequestEl.value;
     if (!request.trim()) {
         alert("אנא תאר מה אתה רוצה לשלוח");
         return;
@@ -1091,9 +1105,52 @@ async function generateAIMessages() {
     if (!token) return;
 
     try {
-        // Show loading
-        const contentOptions = document.getElementById('contentOptions');
-        contentOptions.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> יוצר תוכן...</div>';
+        // Ensure we're on step 3
+        const step3 = modal.querySelector('#step3');
+        if (!step3 || !step3.classList.contains('active')) {
+            console.warn('generateAIMessages: step3 is not active, activating it...');
+            nextStep(3);
+            // Wait for DOM to update
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        
+        // Wait for elements to be available
+        const contentOptions = await waitForElement('#contentOptions', modal, 1000);
+        if (!contentOptions) {
+            console.error('contentOptions element not found after waiting - modal structure may be broken');
+            alert('שגיאה: לא נמצא אזור תוכן. אנא רענן את הדף.');
+            return;
+        }
+        
+        const grid = await waitForElement('#contentOptionsGrid', modal, 1000);
+        if (!grid) {
+            console.error('contentOptionsGrid element not found after waiting - creating it...');
+            // Try to create it if it doesn't exist
+            const newGrid = document.createElement('div');
+            newGrid.id = 'contentOptionsGrid';
+            newGrid.className = 'options-grid';
+            const h6 = contentOptions.querySelector('h6');
+            if (h6 && h6.nextSibling) {
+                contentOptions.insertBefore(newGrid, h6.nextSibling);
+            } else {
+                contentOptions.appendChild(newGrid);
+            }
+            // Use the newly created grid
+            const createdGrid = contentOptions.querySelector('#contentOptionsGrid');
+            if (!createdGrid) {
+                alert('שגיאה: לא ניתן ליצור אזור תוכן. אנא רענן את הדף.');
+                return;
+            }
+        }
+        
+        // Show loading state
+        const loadingHtml = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> יוצר תוכן...</div>';
+        const existingGrid = contentOptions.querySelector('#contentOptionsGrid');
+        if (existingGrid) {
+            existingGrid.innerHTML = loadingHtml;
+        } else {
+            contentOptions.innerHTML = loadingHtml;
+        }
         contentOptions.style.display = 'block';
 
         // Call AI API
@@ -1130,8 +1187,90 @@ async function generateAIMessages() {
     }
 }
 
+/**
+ * Wait for an element to appear in the DOM
+ * @param {string} selector - CSS selector
+ * @param {Element} container - Container element to search within (default: document)
+ * @param {number} timeout - Maximum wait time in ms (default: 2000)
+ * @returns {Promise<Element|null>}
+ */
+function waitForElement(selector, container = document, timeout = 2000) {
+    return new Promise((resolve) => {
+        const startTime = Date.now();
+        
+        function check() {
+            const element = container.querySelector(selector);
+            if (element) {
+                resolve(element);
+                return;
+            }
+            
+            if (Date.now() - startTime > timeout) {
+                console.warn(`waitForElement: timeout waiting for ${selector}`);
+                resolve(null);
+                return;
+            }
+            
+            requestAnimationFrame(check);
+        }
+        
+        check();
+    });
+}
+
+/**
+ * Get the message modal element, ensuring it's in the DOM
+ */
+function getMessageModal() {
+    return document.getElementById('messageModal');
+}
+
 function displayContentOptions(options) {
-    const grid = document.getElementById('contentOptionsGrid');
+    const modal = getMessageModal();
+    if (!modal) {
+        console.error('displayContentOptions: messageModal not found');
+        return;
+    }
+    
+    // Ensure we're on step 3 (AI message generation step)
+    const step3 = modal.querySelector('#step3');
+    if (!step3 || !step3.classList.contains('active')) {
+        console.warn('displayContentOptions: step3 is not active');
+        if (modal.classList.contains('show')) {
+            nextStep(3);
+            // Wait for DOM to update, then retry
+            setTimeout(() => displayContentOptions(options), 200);
+            return;
+        }
+        return;
+    }
+    
+    // Wait for the grid element to be available
+    waitForElement('#contentOptionsGrid', modal, 1000).then(grid => {
+        if (!grid) {
+            console.error('contentOptionsGrid element not found after waiting - modal structure may be broken');
+            // Try to create it if it doesn't exist
+            const contentOptions = modal.querySelector('#contentOptions');
+            if (contentOptions) {
+                const newGrid = document.createElement('div');
+                newGrid.id = 'contentOptionsGrid';
+                newGrid.className = 'options-grid';
+                const h6 = contentOptions.querySelector('h6');
+                if (h6 && h6.nextSibling) {
+                    contentOptions.insertBefore(newGrid, h6.nextSibling);
+                } else {
+                    contentOptions.appendChild(newGrid);
+                }
+                renderContentOptions(newGrid, options);
+            }
+            return;
+        }
+        
+        renderContentOptions(grid, options);
+    });
+}
+
+function renderContentOptions(grid, options) {
     grid.innerHTML = options.map((option, index) => `
         <div class="option-card" onclick="selectContentOption(${index}, '${option.replace(/'/g, "\\'")}')">
             <h6>אופציה ${index + 1}</h6>
@@ -1139,29 +1278,47 @@ function displayContentOptions(options) {
         </div>
     `).join('');
 
-    document.getElementById('contentOptions').style.display = 'block';
+    const modal = getMessageModal();
+    if (modal) {
+        const contentOptions = modal.querySelector('#contentOptions');
+        if (contentOptions) {
+            contentOptions.style.display = 'block';
+        }
+    }
 }
 
 function selectContentOption(index, content) {
     selectedContentOption = { index, content };
     
+    const modal = getMessageModal();
+    if (!modal) return;
+    
     // Update selected state
-    document.querySelectorAll('#contentOptionsGrid .option-card').forEach((card, i) => {
-        if (i === index) {
-            card.classList.add('selected');
-        } else {
-            card.classList.remove('selected');
-        }
-    });
+    const grid = modal.querySelector('#contentOptionsGrid');
+    if (grid) {
+        grid.querySelectorAll('.option-card').forEach((card, i) => {
+            if (i === index) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+        });
+    }
 
     // Show design options if not shown
-    if (!document.getElementById('designOptions').style.display || 
-        document.getElementById('designOptions').style.display === 'none') {
+    const designOptions = modal.querySelector('#designOptions');
+    if (designOptions && (!designOptions.style.display || designOptions.style.display === 'none')) {
         generateDesignOptions();
     }
 }
 
 function generateDesignOptions() {
+    const modal = getMessageModal();
+    if (!modal) {
+        console.warn('generateDesignOptions: messageModal not found');
+        return;
+    }
+    
     const event = currentEvents.find(e => e.id === selectedEventId);
     const designOptions = [
         {
@@ -1181,7 +1338,31 @@ function generateDesignOptions() {
         }
     ];
 
-    const grid = document.getElementById('designOptionsGrid');
+    waitForElement('#designOptionsGrid', modal, 1000).then(grid => {
+        if (!grid) {
+            console.warn('designOptionsGrid element not found after waiting');
+            // Try to create it
+            const designOptionsContainer = modal.querySelector('#designOptions');
+            if (designOptionsContainer) {
+                const newGrid = document.createElement('div');
+                newGrid.id = 'designOptionsGrid';
+                newGrid.className = 'options-grid';
+                const h6 = designOptionsContainer.querySelector('h6');
+                if (h6 && h6.nextSibling) {
+                    designOptionsContainer.insertBefore(newGrid, h6.nextSibling);
+                } else {
+                    designOptionsContainer.appendChild(newGrid);
+                }
+                renderDesignOptions(newGrid, designOptions);
+            }
+            return;
+        }
+        
+        renderDesignOptions(grid, designOptions);
+    });
+}
+
+function renderDesignOptions(grid, designOptions) {
     grid.innerHTML = designOptions.map((design, index) => `
         <div class="option-card" onclick="selectDesignOption(${index})">
             <h6>${design.name}</h6>
@@ -1194,30 +1375,48 @@ function generateDesignOptions() {
         </div>
     `).join('');
 
-    document.getElementById('designOptions').style.display = 'block';
+    const modal = getMessageModal();
+    if (modal) {
+        const designOptionsEl = modal.querySelector('#designOptions');
+        if (designOptionsEl) {
+            designOptionsEl.style.display = 'block';
+        }
+    }
 }
 
 function selectDesignOption(index) {
     selectedDesignOption = index;
     
-    document.querySelectorAll('#designOptionsGrid .option-card').forEach((card, i) => {
-        if (i === index) {
-            card.classList.add('selected');
-        } else {
-            card.classList.remove('selected');
-        }
-    });
+    const modal = getMessageModal();
+    if (!modal) return;
+    
+    const grid = modal.querySelector('#designOptionsGrid');
+    if (grid) {
+        grid.querySelectorAll('.option-card').forEach((card, i) => {
+            if (i === index) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+        });
+    }
 
     // Show continue button
     if (selectedContentOption && selectedDesignOption !== null) {
-        document.getElementById('continueToSend').style.display = 'block';
+        const continueBtn = modal.querySelector('#continueToSend');
+        if (continueBtn) {
+            continueBtn.style.display = 'block';
+        }
         updateMessagePreview();
     }
 }
 
 function updateMessagePreview() {
+    const modal = getMessageModal();
+    if (!modal) return;
+    
     const event = currentEvents.find(e => e.id === selectedEventId);
-    const preview = document.getElementById('messagePreview');
+    const preview = modal.querySelector('#messagePreview');
     
     if (!preview || !event || !selectedContentOption) return;
 
@@ -1240,15 +1439,33 @@ async function sendMessages() {
         return;
     }
 
-    const sendEmail = document.getElementById('sendEmail').checked;
-    const sendSMS = document.getElementById('sendSMS').checked;
+    const modal = getMessageModal();
+    if (!modal) {
+        console.warn('sendMessages: messageModal not found');
+        return;
+    }
+    
+    const sendEmailEl = modal.querySelector('#sendEmail');
+    const sendSMSEl = modal.querySelector('#sendSMS');
+    if (!sendEmailEl || !sendSMSEl) {
+        console.warn('Send options elements not found');
+        return;
+    }
+    
+    const sendEmail = sendEmailEl.checked;
+    const sendSMS = sendSMSEl.checked;
 
     if (!sendEmail && !sendSMS) {
         alert("אנא בחר לפחות דרך שליחה אחת");
         return;
     }
 
-    const participants = document.getElementById('participantsList').value;
+    const participantsEl = modal.querySelector('#participantsList');
+    if (!participantsEl) {
+        console.warn('participantsList element not found');
+        return;
+    }
+    const participants = participantsEl.value;
     if (!participants.trim()) {
         alert("אנא הזן משתתפים");
         return;

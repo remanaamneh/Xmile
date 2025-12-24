@@ -13,8 +13,8 @@ spring:
   
   datasource:
     url: jdbc:mysql://localhost:3306/xmile_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: root
-    password: rootpassword
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:Rn@318695681}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 

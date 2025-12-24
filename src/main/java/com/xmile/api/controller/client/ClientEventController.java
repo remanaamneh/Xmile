@@ -1,9 +1,11 @@
 package com.xmile.api.controller.client;
 
+import com.xmile.api.dto.ApprovedEventResponse;
 import com.xmile.api.dto.MyEventResponse;
 import com.xmile.api.model.Event;
 import com.xmile.api.model.EventQuote;
 import com.xmile.api.model.EventQuoteStatus;
+import com.xmile.api.model.EventStatus;
 import com.xmile.api.repository.EventQuoteRepository;
 import com.xmile.api.repository.EventRepository;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +59,30 @@ public class ClientEventController {
                 .collect(Collectors.toList());
         
         return ResponseEntity.ok(myEvents);
+    }
+
+    @GetMapping("/events/approved")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<List<ApprovedEventResponse>> getApprovedEvents(Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+        // Get events with status APPROVED or CONFIRMED
+        List<Event> events = eventRepository.findByClientUser_IdAndStatusIn(
+            userId, 
+            List.of(EventStatus.APPROVED, EventStatus.CONFIRMED)
+        );
+        
+        List<ApprovedEventResponse> approvedEvents = events.stream()
+                .map(event -> ApprovedEventResponse.builder()
+                        .id(event.getId())
+                        .name(event.getName())
+                        .eventDate(event.getEventDate())
+                        .startTime(event.getStartTime())
+                        .location(event.getLocation())
+                        .status(event.getStatus())
+                        .build())
+                .collect(Collectors.toList());
+        
+        return ResponseEntity.ok(approvedEvents);
     }
 }
 
