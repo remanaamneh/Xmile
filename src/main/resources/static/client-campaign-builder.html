@@ -52,15 +52,40 @@
         <p class="muted">בחרי אחת מהאופציות או צרי חדש עם AI</p>
         
         <div class="mb-3">
-          <textarea id="aiPrompt" class="form-control" rows="3" placeholder="תארי מה את רוצה להגיד למשתתפים..."></textarea>
-          <button class="btn btn-info mt-2" id="btnGenerateAI">
+          <textarea id="aiPromptInput" class="form-control" rows="3" placeholder="כתבי פה טקסט ראשוני..."></textarea>
+          <button class="btn btn-info mt-2" id="btnGenerateAi">
             <i class="fas fa-magic"></i> צור תוכן עם AI
           </button>
         </div>
 
-        <div class="grid3" id="contentOptionsGrid"></div>
+        <div id="aiOptionsSection" class="hidden">
+          <div class="options-grid" id="contentOptionsGrid">
+            <div class="option-card" data-index="0">
+              <div class="option-title">אפשרות 1</div>
+              <div class="option-text" id="optText0"></div>
+              <button class="btnPick" data-index="0">בחרי</button>
+            </div>
+
+            <div class="option-card" data-index="1">
+              <div class="option-title">אפשרות 2</div>
+              <div class="option-text" id="optText1"></div>
+              <button class="btnPick" data-index="1">בחרי</button>
+            </div>
+
+            <div class="option-card" data-index="2">
+              <div class="option-title">אפשרות 3</div>
+              <div class="option-text" id="optText2"></div>
+              <button class="btnPick" data-index="2">בחרי</button>
+            </div>
+          </div>
+        </div>
         <div class="muted mt-2" id="loadingContent" style="display:none;">
           <i class="fas fa-spinner fa-spin"></i> יוצר תוכן...
+        </div>
+        
+        <div class="mb-3 mt-3">
+          <label class="lbl">הטקסט שנבחר:</label>
+          <textarea id="finalMessageText" class="form-control" rows="3" placeholder="הטקסט הסופי יופיע כאן..." readonly></textarea>
         </div>
 
         <div class="nav">
@@ -170,6 +195,15 @@
         <!-- Recipients Input -->
         <div class="mb-3">
           <label class="lbl">הוסף משתתפים (Email/Phone, אחד בכל שורה):</label>
+          
+          <div class="upload-row" style="margin:12px 0;">
+            <label class="btn btn-outline-primary" style="cursor:pointer;">
+              <i class="fas fa-file-excel"></i> העלאת קובץ Excel
+              <input type="file" id="recipientsExcel" accept=".xlsx,.xls,.csv" hidden />
+            </label>
+            <small id="excelStatus" style="margin-right:10px;color:#6b7280;"></small>
+          </div>
+          
           <textarea id="recipientsList" class="form-control" rows="5" placeholder="user@example.com&#10;+972501234567"></textarea>
         </div>
 
@@ -185,6 +219,7 @@
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/common.js"></script>
   <script src="js/client-campaign-builder.js"></script>

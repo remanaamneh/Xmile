@@ -1,18 +1,12 @@
 /*********************************
  * CHATBOT FOR CLIENT DASHBOARD
  * 
- * This chatbot calls n8n production webhook directly.
- * 
- * To configure n8n:
- * 1. Set up n8n workflow with:
- *    - Webhook node (POST /chat)
- *    - OpenAI/Chat Model node
- *    - HTTP Response node
- * 2. Make sure CORS is enabled in n8n webhook settings
+ * This chatbot calls the Spring Boot proxy endpoint /api/chatbot/message
+ * which forwards requests to the n8n webhook to bypass CORS.
  *********************************/
 
-// Production n8n webhook URL
-const CHATBOT_API_URL = "https://remana.app.n8n.cloud/webhook/chat";
+// Chatbot API endpoint (proxied through Spring Boot to bypass CORS)
+const CHATBOT_API_URL = "/api/chatbot/message";
 
 // Generate or retrieve session ID
 function getSessionId() {
@@ -176,7 +170,7 @@ async function sendChatbotMessage() {
     try {
         const sessionId = getSessionId();
         
-        // Call n8n production webhook directly
+        // Call Spring Boot proxy endpoint (forwards to n8n)
         const response = await fetch(CHATBOT_API_URL, {
             method: 'POST',
             headers: { 
