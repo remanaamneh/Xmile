@@ -64,7 +64,11 @@ public class EventQuote {
     @Builder.Default
     private Integer requestedWorkers = 0;
 
+    @Column(name = "final_price", precision = 10, scale = 2)
+    private BigDecimal finalPrice;
 
+    @Column(name = "admin_notes", columnDefinition = "TEXT")
+    private String adminNotes;
 
     @PrePersist
     void onCreate() {

@@ -28,6 +28,7 @@ public class AdminQuoteResponse {
     private String productionCompanyName;
     private Integer requestedWorkers;
     private BigDecimal quoteAmount;
+    private BigDecimal finalPrice;
     private String status; // UPPERCASE: SUBMITTED, APPROVED, REJECTED, etc.
     private String notes;
     private String adminNotes;

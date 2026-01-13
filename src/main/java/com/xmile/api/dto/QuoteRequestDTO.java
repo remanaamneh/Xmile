@@ -24,9 +24,11 @@ public class QuoteRequestDTO {
     private String productionCompanyName;
     private Integer workersNeeded;
     private BigDecimal quoteAmount;
+    private BigDecimal finalPrice;
     private String status; // submitted (pending_approval), approved, rejected, cancelled (completed)
     private String notes;
     private String adminNote;
+    private String adminNotes;
     private String rejectReason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

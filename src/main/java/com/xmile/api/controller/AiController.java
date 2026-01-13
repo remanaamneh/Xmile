@@ -1,8 +1,13 @@
 package com.xmile.api.controller;
 
+import com.xmile.api.dto.ai.AiTextOption;
+import com.xmile.api.dto.ai.AiTextsRequest;
+import com.xmile.api.dto.ai.AiTextsResponse;
+import com.xmile.api.service.campaign.AiCampaignService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -11,16 +16,26 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AiController {
 
+    private final AiCampaignService aiCampaignService;
+
     /**
-     * Generate 3 text options for AI content selection (simple version)
+     * Generate 3 text options for AI content selection
      * 
      * Request: POST /api/ai/texts
      * Body: { "prompt": "טקסט ראשוני..." }
      * 
-     * Response: { "texts": ["אופציה 1", "אופציה 2", "אופציה 3"] }
+     * Response: 
+     * {
+     *   "texts": ["אופציה 1", "אופציה 2", "אופציה 3"],
+     *   "options": [
+     *     {"channel": "PROFESSIONAL", "text": "..."},
+     *     {"channel": "FRIENDLY", "text": "..."},
+     *     {"channel": "ENERGETIC", "text": "..."}
+     *   ]
+     * }
      */
     @PostMapping("/texts")
-    public Map<String, List<String>> texts(@RequestBody Map<String, Object> body) {
+    public Map<String, Object> texts(@RequestBody Map<String, Object> body) {
         // DEBUG: Log incoming request
         System.out.println("DEBUG AiController: Received /api/ai/texts request");
         System.out.println("DEBUG AiController: body = " + body);
@@ -29,28 +44,32 @@ public class AiController {
         System.out.println("DEBUG AiController: prompt = " + prompt);
         
         if (prompt.isEmpty()) {
-            System.out.println("DEBUG AiController: Empty prompt, returning empty texts");
-            return Map.of("texts", List.of("", "", ""));
+            System.out.println("DEBUG AiController: Empty prompt, returning empty options");
+            Map<String, Object> emptyResponse = new HashMap<>();
+            emptyResponse.put("texts", List.of("", "", ""));
+            emptyResponse.put("options", List.of(
+                new AiTextOption("PROFESSIONAL", ""),
+                new AiTextOption("FRIENDLY", ""),
+                new AiTextOption("ENERGETIC", "")
+            ));
+            return emptyResponse;
         }
 
-        // זמני (דמו) - 3 וריאציות של הטקסט המקורי ללא משפטים קבועים
-        // TODO: אחרי זה נחבר ל-OpenAI עם פרומפט שמשפר את הטקסט בלבד
-        // אופציה 1: הטקסט כמו שהוא (לרפרנס)
-        String option1 = prompt;
+        // Use AI service to generate 3 different options
+        AiTextsRequest request = new AiTextsRequest(
+            body.get("campaignId") != null ? Long.parseLong(body.get("campaignId").toString()) : null,
+            prompt
+        );
         
-        // אופציה 2: וריאציה קלה - הוספת נקודה אם אין
-        String option2 = prompt.endsWith(".") || prompt.endsWith("!") || prompt.endsWith("?") 
-                ? prompt 
-                : prompt + ".";
-        
-        // אופציה 3: גרסה קצרה יותר אם הטקסט ארוך
-        String option3 = prompt.length() > 80 
-                ? prompt.substring(0, Math.min(80, prompt.length())) + "..." 
-                : prompt;
-        
-        List<String> texts = List.of(option1, option2, option3);
+        AiTextsResponse response = aiCampaignService.generateTexts(request);
+        List<String> texts = response.texts();
+        List<AiTextOption> options = response.options();
 
-        System.out.println("DEBUG AiController: Returning " + texts.size() + " texts");
-        return Map.of("texts", texts);
+        System.out.println("DEBUG AiController: Returning " + texts.size() + " texts and " + options.size() + " options");
+        // Return both "texts" (backward compatibility) and "options" (with channel info)
+        Map<String, Object> result = new HashMap<>();
+        result.put("texts", texts);
+        result.put("options", options);
+        return result;
     }
 }

@@ -133,5 +133,47 @@ public class ClientQuoteRequestController {
                     .body(java.util.Map.of("error", errorMessage));
         }
     }
+
+    /**
+     * Client approves the final quote
+     * PUT /client/quote-requests/{id}/approve
+     */
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<QuoteRequestDTO> approveFinalQuote(
+            @PathVariable Long id,
+            Authentication authentication) {
+        Long userId = requireUserId(authentication);
+        try {
+            QuoteRequestDTO quote = quoteService.approveFinalQuoteByClient(id, userId);
+            return ResponseEntity.ok(quote);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .build();
+        }
+    }
+
+    /**
+     * Client rejects the final quote
+     * PUT /client/quote-requests/{id}/reject
+     */
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<QuoteRequestDTO> rejectFinalQuote(
+            @PathVariable Long id,
+            Authentication authentication) {
+        Long userId = requireUserId(authentication);
+        try {
+            QuoteRequestDTO quote = quoteService.rejectFinalQuoteByClient(id, userId);
+            return ResponseEntity.ok(quote);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .build();
+        }
+    }
 }
 
