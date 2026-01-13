@@ -1090,17 +1090,33 @@ async function generateAIMessages() {
             nextStep(3);
             // Wait for DOM to update
             await new Promise(resolve => setTimeout(resolve, 200));
+            // Re-query step3 after activation
+            const updatedStep3 = modal.querySelector('#step3');
+            if (!updatedStep3) {
+                console.error('generateAIMessages: step3 not found after activation');
+                alert('שגיאה: לא נמצא שלב 3. אנא רענן את הדף.');
+                return;
+            }
         }
         
-        // Wait for elements to be available
-        const contentOptions = await waitForElement('#contentOptions', modal, 1000);
+        // Get step3 again to ensure we have the latest reference
+        const step3Ref = modal.querySelector('#step3');
+        if (!step3Ref) {
+            console.error('generateAIMessages: step3 not found');
+            alert('שגיאה: לא נמצא שלב 3. אנא רענן את הדף.');
+            return;
+        }
+        
+        // Wait for elements to be available within step3
+        const contentOptions = await waitForElement('#contentOptions', step3Ref, 2000);
         if (!contentOptions) {
             console.error('contentOptions element not found after waiting - modal structure may be broken');
             alert('שגיאה: לא נמצא אזור תוכן. אנא רענן את הדף.');
             return;
         }
         
-        const grid = await waitForElement('#contentOptionsGrid', modal, 1000);
+        // Wait for grid element within step3
+        const grid = await waitForElement('#contentOptionsGrid', step3Ref, 2000);
         if (!grid) {
             console.error('contentOptionsGrid element not found after waiting - creating it...');
             // Try to create it if it doesn't exist
@@ -1121,15 +1137,20 @@ async function generateAIMessages() {
             }
         }
         
-        // Show loading state
+        // Show loading state - query within step3
         const loadingHtml = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> יוצר תוכן...</div>';
-        const existingGrid = contentOptions.querySelector('#contentOptionsGrid');
+        const existingGrid = step3Ref.querySelector('#contentOptionsGrid');
         if (existingGrid) {
             existingGrid.innerHTML = loadingHtml;
         } else {
-            contentOptions.innerHTML = loadingHtml;
+            const fallbackContentOptions = step3Ref.querySelector('#contentOptions');
+            if (fallbackContentOptions) {
+                fallbackContentOptions.innerHTML = loadingHtml;
+            }
         }
-        contentOptions.style.display = 'block';
+        if (contentOptions) {
+            contentOptions.style.display = 'block';
+        }
 
         // Call AI API
         const res = await fetch(`${MESSAGES_URL}/ai/generate`, {
@@ -1166,7 +1187,7 @@ async function generateAIMessages() {
 }
 
 /**
- * Wait for an element to appear in the DOM
+ * Wait for an element to appear in the DOM using MutationObserver for robust detection
  * @param {string} selector - CSS selector
  * @param {Element} container - Container element to search within (default: document)
  * @param {number} timeout - Maximum wait time in ms (default: 2000)
@@ -1176,15 +1197,51 @@ function waitForElement(selector, container = document, timeout = 2000) {
     return new Promise((resolve) => {
         const startTime = Date.now();
         
-        function check() {
-            const element = container.querySelector(selector);
+        // First, check if element already exists
+        let element = container.querySelector(selector);
+        if (element) {
+            resolve(element);
+            return;
+        }
+        
+        // Use MutationObserver for better detection of DOM changes
+        const observer = new MutationObserver((mutations, obs) => {
+            element = container.querySelector(selector);
             if (element) {
+                obs.disconnect();
+                resolve(element);
+                return;
+            }
+            
+            // Timeout check
+            if (Date.now() - startTime > timeout) {
+                obs.disconnect();
+                console.warn(`waitForElement: timeout waiting for ${selector} in container`, container);
+                resolve(null);
+                return;
+            }
+        });
+        
+        // Start observing
+        observer.observe(container, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style', 'id']
+        });
+        
+        // Fallback: also check periodically with requestAnimationFrame
+        function check() {
+            element = container.querySelector(selector);
+            if (element) {
+                observer.disconnect();
                 resolve(element);
                 return;
             }
             
             if (Date.now() - startTime > timeout) {
-                console.warn(`waitForElement: timeout waiting for ${selector}`);
+                observer.disconnect();
+                console.warn(`waitForElement: timeout waiting for ${selector} in container`, container);
                 resolve(null);
                 return;
             }
@@ -1223,12 +1280,12 @@ function displayContentOptions(options) {
         return;
     }
     
-    // Wait for the grid element to be available
-    waitForElement('#contentOptionsGrid', modal, 1000).then(grid => {
+    // Query within step3 where the element actually exists
+    waitForElement('#contentOptionsGrid', step3, 2000).then(grid => {
         if (!grid) {
-            console.error('contentOptionsGrid element not found after waiting - modal structure may be broken');
+            console.error('contentOptionsGrid element not found after waiting - modal may not be fully loaded');
             // Try to create it if it doesn't exist
-            const contentOptions = modal.querySelector('#contentOptions');
+            const contentOptions = step3.querySelector('#contentOptions');
             if (contentOptions) {
                 const newGrid = document.createElement('div');
                 newGrid.id = 'contentOptionsGrid';
@@ -1240,6 +1297,8 @@ function displayContentOptions(options) {
                     contentOptions.appendChild(newGrid);
                 }
                 renderContentOptions(newGrid, options);
+            } else {
+                console.error('contentOptions container not found in step3');
             }
             return;
         }
@@ -1256,11 +1315,15 @@ function renderContentOptions(grid, options) {
         </div>
     `).join('');
 
+    // Show content options container - query within step3
     const modal = getMessageModal();
     if (modal) {
-        const contentOptions = modal.querySelector('#contentOptions');
-        if (contentOptions) {
-            contentOptions.style.display = 'block';
+        const step3 = modal.querySelector('#step3');
+        if (step3) {
+            const contentOptions = step3.querySelector('#contentOptions');
+            if (contentOptions) {
+                contentOptions.style.display = 'block';
+            }
         }
     }
 }
@@ -1271,8 +1334,11 @@ function selectContentOption(index, content) {
     const modal = getMessageModal();
     if (!modal) return;
     
-    // Update selected state
-    const grid = modal.querySelector('#contentOptionsGrid');
+    // Query within step3 where the element actually exists
+    const step3 = modal.querySelector('#step3');
+    if (!step3) return;
+    
+    const grid = step3.querySelector('#contentOptionsGrid');
     if (grid) {
         grid.querySelectorAll('.option-card').forEach((card, i) => {
             if (i === index) {
@@ -1284,7 +1350,7 @@ function selectContentOption(index, content) {
     }
 
     // Show design options if not shown
-    const designOptions = modal.querySelector('#designOptions');
+    const designOptions = step3.querySelector('#designOptions');
     if (designOptions && (!designOptions.style.display || designOptions.style.display === 'none')) {
         generateDesignOptions();
     }
@@ -1294,6 +1360,13 @@ function generateDesignOptions() {
     const modal = getMessageModal();
     if (!modal) {
         console.warn('generateDesignOptions: messageModal not found');
+        return;
+    }
+    
+    // Query within step3 where the element actually exists
+    const step3 = modal.querySelector('#step3');
+    if (!step3) {
+        console.warn('generateDesignOptions: step3 not found');
         return;
     }
     
@@ -1316,11 +1389,11 @@ function generateDesignOptions() {
         }
     ];
 
-    waitForElement('#designOptionsGrid', modal, 1000).then(grid => {
+    waitForElement('#designOptionsGrid', step3, 2000).then(grid => {
         if (!grid) {
             console.warn('designOptionsGrid element not found after waiting');
-            // Try to create it
-            const designOptionsContainer = modal.querySelector('#designOptions');
+            // Try to create it within step3
+            const designOptionsContainer = step3.querySelector('#designOptions');
             if (designOptionsContainer) {
                 const newGrid = document.createElement('div');
                 newGrid.id = 'designOptionsGrid';
@@ -1353,11 +1426,15 @@ function renderDesignOptions(grid, designOptions) {
         </div>
     `).join('');
 
+    // Show design options container - query within step3
     const modal = getMessageModal();
     if (modal) {
-        const designOptionsEl = modal.querySelector('#designOptions');
-        if (designOptionsEl) {
-            designOptionsEl.style.display = 'block';
+        const step3 = modal.querySelector('#step3');
+        if (step3) {
+            const designOptionsEl = step3.querySelector('#designOptions');
+            if (designOptionsEl) {
+                designOptionsEl.style.display = 'block';
+            }
         }
     }
 }
@@ -1368,7 +1445,11 @@ function selectDesignOption(index) {
     const modal = getMessageModal();
     if (!modal) return;
     
-    const grid = modal.querySelector('#designOptionsGrid');
+    // Query within step3 where the element actually exists
+    const step3 = modal.querySelector('#step3');
+    if (!step3) return;
+    
+    const grid = step3.querySelector('#designOptionsGrid');
     if (grid) {
         grid.querySelectorAll('.option-card').forEach((card, i) => {
             if (i === index) {

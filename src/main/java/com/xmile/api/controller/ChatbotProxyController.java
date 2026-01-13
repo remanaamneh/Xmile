@@ -14,8 +14,8 @@ public class ChatbotProxyController {
 
     private final WebClient webClient;
 
-    // Production webhook URL
-    private static final String N8N_WEBHOOK_URL = "https://remana.app.n8n.cloud/webhook/chat";
+    // n8n webhook URL
+    private static final String N8N_WEBHOOK_URL = "https://mouhij189.app.n8n.cloud/webhook/chat";
 
     public ChatbotProxyController(WebClient.Builder builder) {
         this.webClient = builder.build();

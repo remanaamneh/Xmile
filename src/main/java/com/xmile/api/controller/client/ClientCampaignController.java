@@ -41,6 +41,11 @@ public class ClientCampaignController {
 
     @PostMapping("/{id}/ai-generate")
     public ResponseEntity<AiGenerateResponse> aiGenerate(@PathVariable Long id, @RequestBody @Valid AiGenerateRequest req) {
+        // DEBUG: Log incoming request
+        System.out.println("DEBUG Controller: Received ai-generate request for campaign " + id);
+        System.out.println("DEBUG Controller: req = " + req);
+        System.out.println("DEBUG Controller: req.prompt = " + (req == null ? null : req.prompt()));
+        
         AiGenerateResponse response = service.generateAi(id, req);
         return ResponseEntity.ok(response);
     }

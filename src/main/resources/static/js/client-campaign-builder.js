@@ -2,6 +2,110 @@
   const API = window.API_BASE || "";
   const $ = (id) => document.getElementById(id);
 
+  // Excel upload helpers
+  function normalizePhone(raw) {
+    if (!raw) return "";
+    let s = String(raw).trim();
+
+    // remove spaces, dashes, parentheses
+    s = s.replace(/[()\s-]/g, "");
+
+    // handle leading +
+    if (s.startsWith("+")) s = s.substring(1);
+
+    // if it's like 9725... keep
+    // if it's Israeli local like 05xxxxxxxx -> convert to 9725xxxxxxx (optional)
+    if (s.startsWith("05") && s.length >= 10) {
+      s = "972" + s.substring(1);
+    }
+
+    // keep digits only
+    s = s.replace(/\D/g, "");
+    return s;
+  }
+
+  function isEmail(x) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(x).trim());
+  }
+
+  function extractFromRow(rowObj) {
+    // rowObj is like { "Email": "...", "Phone": "..." } depending on headers
+    const keys = Object.keys(rowObj || {});
+    const getByKeyIncludes = (arr) =>
+      keys.find(k => arr.some(a => k.toLowerCase().includes(a)));
+
+    const emailKey = getByKeyIncludes(["email", "מייל", "דוא", "דוא\"ל"]);
+    const phoneKey = getByKeyIncludes(["phone", "טל", "טלפון", "mobile", "נייד"]);
+
+    const email = emailKey ? String(rowObj[emailKey] || "").trim() : "";
+    const phone = phoneKey ? normalizePhone(rowObj[phoneKey]) : "";
+
+    // fallback: scan any cell for email/phone
+    let email2 = email;
+    let phone2 = phone;
+
+    if (!email2 || !phone2) {
+      for (const k of keys) {
+        const v = String(rowObj[k] ?? "").trim();
+        if (!email2 && isEmail(v)) email2 = v;
+        if (!phone2) {
+          const p = normalizePhone(v);
+          if (p.length >= 9) phone2 = p;
+        }
+      }
+    }
+
+    return { email: email2, phone: phone2 };
+  }
+
+  function uniqueRecipients(lines) {
+    const seen = new Set();
+    const out = [];
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t) continue;
+      if (seen.has(t)) continue;
+      seen.add(t);
+      out.push(t);
+    }
+    return out;
+  }
+
+  async function handleExcelUpload(file) {
+    const statusEl = $("excelStatus");
+    if (statusEl) statusEl.textContent = "קוראת קובץ...";
+
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+
+    const firstSheet = wb.SheetNames[0];
+    const ws = wb.Sheets[firstSheet];
+
+    // Convert to array of objects using header row
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+    const lines = [];
+    for (const row of rows) {
+      const { email, phone } = extractFromRow(row);
+      if (email) lines.push(email);
+      if (phone) lines.push(phone);
+    }
+
+    const cleaned = uniqueRecipients(lines);
+
+    // Append to existing textarea (so user can add manually too)
+    const ta = $("recipientsList");
+    const existing = (ta.value || "").trim();
+    const merged = uniqueRecipients([
+      ...existing.split(/\r?\n/),
+      ...cleaned
+    ]);
+
+    ta.value = merged.join("\n");
+
+    if (statusEl) statusEl.textContent = `נטענו ${cleaned.length} פריטים מהקובץ ✅`;
+  }
+
   // Campaign state object - single source of truth
   const campaignState = {
     campaignId: null,
@@ -31,6 +135,7 @@
   let selectedChannel = "EMAIL";
   let contentOptions = [];
   let templates = [];
+  let aiOptions = ["", "", ""];
 
   function setStep(n) {
     document.querySelectorAll(".stepPane").forEach(p => p.classList.add("hidden"));
@@ -258,14 +363,38 @@
   }
 
   async function generateAIContent() {
-    const prompt = $("aiPrompt").value.trim();
+    const promptEl = $("aiPromptInput");
+    if (!promptEl) {
+      alert("שגיאה: לא נמצא שדה הקלט");
+      return;
+    }
+    
+    const prompt = (promptEl.value || "").trim();
     if (!prompt) {
-      alert("אנא תארי מה את רוצה להגיד למשתתפים");
+      alert("כתבי טקסט ראשוני כדי שה־AI ישפר אותו 🙂");
       return;
     }
 
+    const btnGen = $("btnGenerateAi");
+    if (!btnGen) return;
+    
+    // Hide and clear options section
+    const sec = $("aiOptionsSection");
+    if (sec) sec.classList.add("hidden");
+    
+    $("optText0").innerText = "";
+    $("optText1").innerText = "";
+    $("optText2").innerText = "";
+    aiOptions = ["", "", ""];
+    selectedContentIndex = null;
+    
+    // Clear final message text
+    const finalEl = $("finalMessageText");
+    if (finalEl) finalEl.value = "";
+    
+    btnGen.disabled = true;
+    btnGen.innerHTML = '<i class="fas fa-spinner fa-spin"></i> מייצר...';
     $("loadingContent").style.display = "block";
-    $("contentOptionsGrid").innerHTML = "";
 
     try {
       // First create campaign if not exists
@@ -276,6 +405,8 @@
         if (!eventIdVal) {
           alert("אנא בחרי אירוע תחילה");
           $("loadingContent").style.display = "none";
+          btnGen.disabled = false;
+          btnGen.innerHTML = '<i class="fas fa-magic"></i> צור תוכן עם AI';
           return;
         }
 
@@ -287,42 +418,102 @@
         eventId = eventIdVal;
       }
 
-      // Generate AI content
-      const aiResponse = await api(`/client/campaigns/${campaignId}/ai-generate`, {
+      // Call new AI texts API
+      const data = await api("/api/ai/texts", {
         method: "POST",
-        body: JSON.stringify({ 
-          prompt: prompt,
-          tone: "friendly",
-          language: "he"
-        })
+        body: JSON.stringify({ campaignId, prompt })
       });
 
-      // Create 3 content options based on AI response
-      contentOptions = [
-        {
-          title: "אופציה 1 - מקצועית",
-          subject: aiResponse.subject || "עדכון מהאירוע",
-          text: aiResponse.messageText || prompt
-        },
-        {
-          title: "אופציה 2 - ידידותית",
-          subject: aiResponse.subject || "עדכון מהאירוע",
-          text: (aiResponse.messageText || prompt).replace(/\./g, " 🙂").replace(/!/g, "! 🎉")
-        },
-        {
-          title: "אופציה 3 - קצרה",
-          subject: aiResponse.subject || "עדכון מהאירוע",
-          text: (aiResponse.messageText || prompt).split(".")[0] + "..."
-        }
+      // Validate response format - must have texts array
+      if (!data || typeof data !== 'object') {
+        console.error("Invalid AI response format:", data);
+        alert("שגיאה: השרת החזיר תגובה לא תקינה. בדקי את ה-Console ו-Network.");
+        return;
+      }
+
+      const texts = Array.isArray(data.texts) ? data.texts : [];
+
+      // Ensure we have exactly 3 texts
+      if (texts.length < 3) {
+        console.warn("AI response doesn't have 3 texts:", data);
+        console.log("Full AI response:", JSON.stringify(data, null, 2));
+        alert("השרת לא החזיר 3 אופציות. בדקי את ה-Response ב-Network.");
+        return;
+      }
+
+      aiOptions = [
+        texts[0] || "",
+        texts[1] || "",
+        texts[2] || ""
       ];
 
-      renderContentOptions();
+      // Update UI
+      $("optText0").innerText = aiOptions[0] || "";
+      $("optText1").innerText = aiOptions[1] || "";
+      $("optText2").innerText = aiOptions[2] || "";
+
+      // Show options section only after we have the texts
+      if (sec) sec.classList.remove("hidden");
+
+      // Default to first option
+      if (aiOptions[0]) {
+        setSelectedContentOption(0);
+      }
+
+      // Also update legacy contentOptions for compatibility
+      contentOptions = aiOptions.map((text, idx) => ({
+        title: `אופציה ${idx + 1}`,
+        subject: "עדכון מהאירוע",
+        text: text
+      }));
+
     } catch (err) {
       console.error("Failed to generate AI content:", err);
-      alert("שגיאה ביצירת תוכן: " + err.message);
+      console.error("Error details:", err.message, err.stack);
+      
+      // Check if it's an authorization error
+      if (err.message && (err.message.includes("401") || err.message.includes("Unauthorized"))) {
+        alert("שגיאת הרשאה: אנא התחברי מחדש.");
+        window.location.href = "/login.html";
+        return;
+      }
+      
+      // Check if it's a format error
+      if (err.message && err.message.includes("texts")) {
+        alert("שגיאה בפורמט התגובה מהשרת. בדקי את ה-Console ו-Network.");
+      } else {
+        alert("לא הצלחתי לייצר אופציות כרגע: " + (err.message || "שגיאה לא ידועה") + ". נסי שוב.");
+      }
     } finally {
       $("loadingContent").style.display = "none";
+      btnGen.disabled = false;
+      btnGen.innerHTML = '<i class="fas fa-magic"></i> צור תוכן עם AI';
     }
+  }
+
+  function setSelectedContentOption(idx) {
+    selectedContentIndex = idx;
+
+    document.querySelectorAll(".option-card").forEach(card => {
+      card.classList.toggle("selected", Number(card.dataset.index) === idx);
+    });
+
+    const selectedText = aiOptions[idx] || "";
+    
+    // Update final message text
+    const finalEl = $("finalMessageText");
+    if (finalEl) {
+      finalEl.value = selectedText;
+    }
+    
+    // Also update messageText in step 3 if it exists
+    const messageTextEl = $("messageText");
+    if (messageTextEl) {
+      messageTextEl.value = selectedText;
+    }
+    
+    // Sync state
+    syncStateFromUI();
   }
 
   function renderContentOptions() {
@@ -513,7 +704,16 @@
     location.href = "/client-dashboard.html";
   });
 
-  $("btnGenerateAI").addEventListener("click", generateAIContent);
+  $("btnGenerateAi").addEventListener("click", generateAIContent);
+  
+  // Bind pick buttons
+  document.querySelectorAll(".btnPick").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.index);
+      if (!aiOptions[idx]) return;
+      setSelectedContentOption(idx);
+    });
+  });
 
   $("btn1Next").addEventListener("click", async () => {
     const eventIdVal = Number($("eventSelect").value);
@@ -569,7 +769,13 @@
       return;
     }
     
-    if (selectedContentIndex !== null) {
+    // Use selected AI option if available
+    if (selectedContentIndex !== null && aiOptions[selectedContentIndex]) {
+      $("subject").value = "עדכון מהאירוע";
+      $("messageText").value = aiOptions[selectedContentIndex];
+      syncStateFromUI();
+    } else if (selectedContentIndex !== null && contentOptions[selectedContentIndex]) {
+      // Legacy fallback
       $("subject").value = contentOptions[selectedContentIndex].subject;
       $("messageText").value = contentOptions[selectedContentIndex].text;
       syncStateFromUI();
@@ -731,7 +937,32 @@
   }
 
 
+  // Excel upload event listener
+  const excelInput = $("recipientsExcel");
+  if (excelInput) {
+    excelInput.addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      try {
+        await handleExcelUpload(file);
+      } catch (err) {
+        console.error(err);
+        alert("לא הצלחתי לקרוא את קובץ האקסל. ודאי שזה .xlsx/.xls תקין.");
+        const statusEl = $("excelStatus");
+        if (statusEl) statusEl.textContent = "";
+      } finally {
+        // allow uploading same file again
+        e.target.value = "";
+      }
+    });
+  }
+
   // Initialize
+  // Hide AI options section initially
+  const sec = $("aiOptionsSection");
+  if (sec) sec.classList.add("hidden");
+  
   loadEvents();
   bindChannels();
   setStep(1);

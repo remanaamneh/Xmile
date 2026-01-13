@@ -62,7 +62,7 @@ public class SecurityConfig {
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/client/**").hasRole("CLIENT")
                         // WORKER routes removed - WORKER role no longer supported
-                        .requestMatchers("/events/**", "/quotes/**", "/messages/**").authenticated()
+                        .requestMatchers("/events/**", "/quotes/**", "/messages/**", "/api/ai/**").authenticated()
                         .requestMatchers("/production-companies").authenticated()
                         // Static resources - check AFTER API endpoints
                         .requestMatchers("/", "/index.html", "/dashboard.html", "/client-dashboard.html", "/manager-dashboard.html", "/quote-request.html", "/quote-result.html", "/quote-success.html", "/server-info.html", "/*.html", "/*.css", "/*.js", "/js/**", "/css/**", "/partner-ui/**", "/static/**", "/favicon.ico", "/*.jpg", "/*.png", "/*.webp", "/*.ico").permitAll()
