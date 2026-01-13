@@ -48,35 +48,44 @@
 
       <!-- STEP 2: Choose AI Content -->
       <section class="card stepPane hidden" id="step2">
-        <h3>בחרי טקסט להודעה</h3>
-        <p class="muted">בחרי אחת מהאופציות או צרי חדש עם AI</p>
+        <h3>שיפור הודעה למשתתפים באמצעות AI</h3>
+        <p class="muted">כתבי הודעה ראשונית, וה-AI יציע לך 3 ניסוחים מקצועיים לבחירה</p>
         
         <div class="mb-3">
-          <textarea id="aiPromptInput" class="form-control" rows="3" placeholder="כתבי פה טקסט ראשוני..."></textarea>
+          <textarea id="aiPromptInput" class="form-control" rows="4" placeholder="לדוגמה: אנו שמחים להזמינכם לכנס השנתי שיתקיים ב־15.3 בתל אביב"></textarea>
           <button class="btn btn-info mt-2" id="btnGenerateAi">
-            <i class="fas fa-magic"></i> צור תוכן עם AI
+            <i class="fas fa-magic"></i> שפרי את ההודעה עם AI
           </button>
         </div>
 
         <div id="aiOptionsSection" class="hidden">
           <div class="options-grid" id="contentOptionsGrid">
-            <div class="option-card" data-index="0">
-              <div class="option-title">אפשרות 1</div>
+            <label class="option-card" data-index="0">
+              <input type="radio" name="aiOption" value="0" class="option-radio" />
+              <div class="option-title">
+                <span class="option-checkmark">✓</span>
+                <span class="option-label">מקצועית</span>
+              </div>
               <div class="option-text" id="optText0"></div>
-              <button class="btnPick" data-index="0">בחרי</button>
-            </div>
+            </label>
 
-            <div class="option-card" data-index="1">
-              <div class="option-title">אפשרות 2</div>
+            <label class="option-card" data-index="1">
+              <input type="radio" name="aiOption" value="1" class="option-radio" />
+              <div class="option-title">
+                <span class="option-checkmark">✓</span>
+                <span class="option-label">ידידותית</span>
+              </div>
               <div class="option-text" id="optText1"></div>
-              <button class="btnPick" data-index="1">בחרי</button>
-            </div>
+            </label>
 
-            <div class="option-card" data-index="2">
-              <div class="option-title">אפשרות 3</div>
+            <label class="option-card" data-index="2">
+              <input type="radio" name="aiOption" value="2" class="option-radio" />
+              <div class="option-title">
+                <span class="option-checkmark">✓</span>
+                <span class="option-label">שיווקית / חגיגית</span>
+              </div>
               <div class="option-text" id="optText2"></div>
-              <button class="btnPick" data-index="2">בחרי</button>
-            </div>
+            </label>
           </div>
         </div>
         <div class="muted mt-2" id="loadingContent" style="display:none;">

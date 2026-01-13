@@ -122,21 +122,22 @@ public class AdminQuoteService {
             throw new IllegalStateException("Only quotes with status QUOTE_PENDING can be approved. Current status: " + currentStatus);
         }
 
-        // Update quote amount with final price
+        // Update final price (separate field for manager's final quote)
+        quote.setFinalPrice(request.getFinalPrice());
+        
+        // Also update quote_amount for backward compatibility
         quote.setQuoteAmount(request.getFinalPrice());
 
         // Update requested workers
         quote.setRequestedWorkers(request.getRequestedWorkers());
 
-        // Update status to APPROVED
-        quote.setStatus(EventQuoteStatus.APPROVED);
+        // Update status to PENDING_CLIENT_FINAL (waiting for client approval)
+        quote.setStatus(EventQuoteStatus.PENDING_CLIENT_FINAL);
         quote.setApprovedAt(LocalDateTime.now());
 
-        // Store admin notes (optional) - append to existing notes
+        // Store admin notes in dedicated field
         if (request.getAdminNotes() != null && !request.getAdminNotes().trim().isEmpty()) {
-            String existingNotes = quote.getNotes() != null ? quote.getNotes() : "";
-            quote.setNotes(existingNotes + (existingNotes.isEmpty() ? "" : "\n\n") +
-                    "הערת מנהל: " + request.getAdminNotes());
+            quote.setAdminNotes(request.getAdminNotes());
         }
 
         // Clear rejection reason if it exists
@@ -148,24 +149,12 @@ public class AdminQuoteService {
         quote = quoteRepository.findByIdWithRelations(quote.getId())
                 .orElseThrow(() -> new RuntimeException("Failed to reload quote with relations"));
 
-        // Update event status
+        // Update event status to QUOTE_PENDING (waiting for client final approval)
         Event event = quote.getEvent();
-        System.out.println("=== UPDATING EVENT STATUS ===");
-        System.out.println("Event ID: " + (event != null ? event.getId() : "null"));
-        System.out.println("Current Event Status: " + (event != null ? event.getStatus() : "null"));
-        System.out.println("Setting Event Status to: " + EventStatus.APPROVED);
-        System.out.println("EventStatus.APPROVED enum value: " + EventStatus.APPROVED.name());
-        
         if (event != null) {
-            event.setStatus(EventStatus.APPROVED);
-            System.out.println("Event Status after setStatus: " + event.getStatus());
-            System.out.println("Event Status name (string): " + event.getStatus().name());
-            event = eventRepository.save(event);
-            System.out.println("Event Status after save: " + event.getStatus());
-        } else {
-            System.err.println("ERROR: Event is null!");
+            event.setStatus(EventStatus.QUOTE_PENDING);
+            eventRepository.save(event);
         }
-        System.out.println("=== END EVENT STATUS UPDATE ===");
 
         return toAdminQuoteResponse(quote);
     }
@@ -263,9 +252,10 @@ public class AdminQuoteService {
                 .productionCompanyName(quote.getProductionCompany() != null ? quote.getProductionCompany().getName() : null)
                 .requestedWorkers(quote.getRequestedWorkers())
                 .quoteAmount(quote.getQuoteAmount())
+                .finalPrice(quote.getFinalPrice())
                 .status(quote.getStatus().name()) // UPPERCASE enum name
                 .notes(notes)
-                .adminNotes(adminNotes)
+                .adminNotes(quote.getAdminNotes() != null ? quote.getAdminNotes() : adminNotes)
                 .adminRejectionReason(quote.getAdminRejectionReason())
                 .createdAt(quote.getCreatedAt())
                 .updatedAt(quote.getUpdatedAt())

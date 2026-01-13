@@ -108,6 +108,80 @@ function logout() {
     window.location.href = "/select-role.html";
 }
 
+async function approveFinalQuote(quoteId) {
+    if (!confirm('האם אתה בטוח שברצונך לאשר את ההצעה הסופית?')) {
+        return;
+    }
+    
+    const token = getToken();
+    if (!token) {
+        alert('אנא התחבר תחילה');
+        window.location.href = '/login.html';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${CLIENT_QUOTE_REQUESTS_URL}/${quoteId}/approve`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: 'שגיאה באישור ההצעה' }));
+            throw new Error(error.message || 'שגיאה באישור ההצעה');
+        }
+        
+        alert('ההצעה אושרה בהצלחה!');
+        
+        // Refresh events list
+        await fetchEvents();
+        
+    } catch (error) {
+        console.error('Error approving final quote:', error);
+        alert('שגיאה באישור ההצעה: ' + error.message);
+    }
+}
+
+async function rejectFinalQuote(quoteId) {
+    if (!confirm('האם אתה בטוח שברצונך לדחות את ההצעה הסופית?')) {
+        return;
+    }
+    
+    const token = getToken();
+    if (!token) {
+        alert('אנא התחבר תחילה');
+        window.location.href = '/login.html';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${CLIENT_QUOTE_REQUESTS_URL}/${quoteId}/reject`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: 'שגיאה בדחיית ההצעה' }));
+            throw new Error(error.message || 'שגיאה בדחיית ההצעה');
+        }
+        
+        alert('ההצעה נדחתה.');
+        
+        // Refresh events list
+        await fetchEvents();
+        
+    } catch (error) {
+        console.error('Error rejecting final quote:', error);
+        alert('שגיאה בדחיית ההצעה: ' + error.message);
+    }
+}
+
 async function sendToManager(quoteId) {
     if (!confirm('האם אתה בטוח שברצונך לשלוח את הבקשה למנהל לאישור?')) {
         return;
@@ -184,6 +258,7 @@ async function loadUserInfo() {
  *********************************/
 let currentEvents = [];
 let currentQuotes = [];
+let currentMergedData = []; // Merged events and quotes by eventId
 let currentFilter = 'all';
 
 async function fetchEvents() {
@@ -252,14 +327,38 @@ async function fetchEvents() {
             id: q.id, 
             status: q.status, 
             eventName: q.eventName || 'ללא שם',
-            participantCount: q.participantCount 
+            participantCount: q.participantCount,
+            eventId: q.eventId
         })));
         if (currentQuotes.length > 0) {
             console.log("First quote full data:", JSON.stringify(currentQuotes[0], null, 2));
         }
         console.log("=== END FETCHED QUOTES ===");
         
-        if (currentEvents.length === 0 && currentQuotes.length === 0) {
+        // Merge events and quotes by eventId
+        const byEventId = new Map();
+        
+        // First, add all events
+        currentEvents.forEach(event => {
+            byEventId.set(event.id, { event: event, quote: null });
+        });
+        
+        // Then, add quotes (merge with events if eventId exists, or create new entry)
+        currentQuotes.forEach(qr => {
+            const key = qr.eventId;
+            if (!byEventId.has(key)) {
+                // Quote without event - create entry with event as null
+                byEventId.set(key, { event: null, quote: qr });
+            } else {
+                // Event exists - add quote to it
+                byEventId.get(key).quote = qr;
+            }
+        });
+        
+        // Store merged data
+        currentMergedData = Array.from(byEventId.values());
+        
+        if (currentMergedData.length === 0) {
             eventsListEl.innerHTML = `
                 <div class="text-center py-5">
                     <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
@@ -312,114 +411,50 @@ function renderEvents() {
     const eventsList = document.getElementById("eventsList");
     if (!eventsList) return;
 
-    let filteredEvents = [...currentEvents] || [];
-    let filteredQuotes = [];
-
-    // Filter based on current filter
-    if (currentFilter === 'pending') {
-        // Show events with pending status AND quotes with submitted/pending_approval status
-        filteredEvents = currentEvents.filter(e => 
-            e.status === 'PENDING_APPROVAL' || 
-            e.status === 'QUOTE_PENDING'
-        );
+    // Filter merged data based on current filter
+    let filteredMerged = currentMergedData.filter(item => {
+        const event = item.event;
+        const quote = item.quote;
         
-        // Debug: Log filtering
-        console.log("=== FILTERING QUOTES FOR PENDING ===");
-        console.log("Total quotes:", currentQuotes.length);
-        console.log("All quote statuses:", currentQuotes.map(q => q.status));
-        
-        filteredQuotes = currentQuotes.filter(q => {
-            const status = q.status;
-            // Include all pending-related statuses
-            const matches = status === 'QUOTE_PENDING' ||
-                           status === 'submitted' || 
-                           status === 'SUBMITTED' ||
-                           status === 'pending_approval' ||
-                           status === 'PENDING_APPROVAL' ||
-                           status === 'SENT_TO_MANAGER' ||
-                           status === 'MANAGER_REVIEW' ||
-                           status === 'DRAFT'; // DRAFT quotes can be sent, so show them in pending
-            if (matches) {
-                console.log("Quote matches pending filter:", q.id, "status:", status, "eventName:", q.eventName);
-            }
-            return matches;
-        });
-        
-        console.log("Filtered quotes count:", filteredQuotes.length);
-        console.log("Filtered quotes:", filteredQuotes.map(q => ({ id: q.id, status: q.status, eventName: q.eventName })));
-        console.log("=== END FILTERING ===");
-    } else if (currentFilter === 'approved') {
-        filteredEvents = currentEvents.filter(e => 
-            e.status === 'APPROVED' || 
-            e.status === 'CONFIRMED'
-        );
-        filteredQuotes = currentQuotes.filter(q => {
-            const status = q.status;
-            // Include all approved-related statuses
-            return status === 'approved' || 
-                   status === 'APPROVED';
-        });
-        console.log("=== FILTERING QUOTES FOR APPROVED ===");
-        console.log("Total quotes:", currentQuotes.length);
-        console.log("Filtered quotes count:", filteredQuotes.length);
-        console.log("Filtered quotes:", filteredQuotes.map(q => ({ id: q.id, status: q.status })));
-        console.log("=== END FILTERING ===");
-    } else if (currentFilter === 'completed') {
-        filteredEvents = currentEvents.filter(e => e.status === 'COMPLETED');
-        filteredQuotes = currentQuotes.filter(q => {
-            const status = q.status;
-            // Include all completed/rejected/closed statuses
-            return status === 'completed' || 
-                   status === 'COMPLETED' ||
-                   status === 'cancelled' ||
-                   status === 'CANCELLED' ||
-                   status === 'REJECTED' ||
-                   status === 'rejected' ||
-                   status === 'CLOSED' ||
-                   status === 'closed';
-        });
-        console.log("=== FILTERING QUOTES FOR COMPLETED ===");
-        console.log("Total quotes:", currentQuotes.length);
-        console.log("Filtered quotes count:", filteredQuotes.length);
-        console.log("=== END FILTERING ===");
-    } else {
-        // Show all - include all quotes and events
-        filteredQuotes = [...currentQuotes];
-        console.log("=== SHOWING ALL QUOTES ===");
-        console.log("Total quotes:", currentQuotes.length);
-        console.log("All quote statuses:", currentQuotes.map(q => ({ id: q.id, status: q.status, eventName: q.eventName })));
-        console.log("=== END ===");
-    }
-
-    // Combine events and quotes for display
-    const allItems = [];
-    
-    // Add events
-    filteredEvents.forEach(event => {
-        allItems.push({
-            type: 'event',
-            data: event
-        });
+        if (currentFilter === 'pending') {
+            // Show items with pending status (either event or quote)
+            const eventPending = event && (event.status === 'PENDING_APPROVAL' || event.status === 'QUOTE_PENDING');
+            const quotePending = quote && (
+                quote.status === 'QUOTE_PENDING' ||
+                quote.status === 'submitted' || 
+                quote.status === 'SUBMITTED' ||
+                quote.status === 'pending_approval' ||
+                quote.status === 'PENDING_APPROVAL' ||
+                quote.status === 'SENT_TO_MANAGER' ||
+                quote.status === 'MANAGER_REVIEW' ||
+                quote.status === 'DRAFT' ||
+                quote.status === 'PENDING_CLIENT_FINAL'
+            );
+            return eventPending || quotePending;
+        } else if (currentFilter === 'approved') {
+            const eventApproved = event && (event.status === 'APPROVED' || event.status === 'CONFIRMED');
+            const quoteApproved = quote && (quote.status === 'approved' || quote.status === 'APPROVED');
+            return eventApproved || quoteApproved;
+        } else if (currentFilter === 'completed') {
+            const eventCompleted = event && event.status === 'COMPLETED';
+            const quoteCompleted = quote && (
+                quote.status === 'completed' || 
+                quote.status === 'COMPLETED' ||
+                quote.status === 'cancelled' ||
+                quote.status === 'CANCELLED' ||
+                quote.status === 'REJECTED' ||
+                quote.status === 'rejected' ||
+                quote.status === 'CLOSED' ||
+                quote.status === 'closed'
+            );
+            return eventCompleted || quoteCompleted;
+        } else {
+            // Show all
+            return true;
+        }
     });
-    
-    // Add quotes (for all filters)
-    filteredQuotes.forEach(quote => {
-        console.log("Adding quote to display:", quote.id, "status:", quote.status);
-        allItems.push({
-            type: 'quote',
-            data: quote
-        });
-    });
-    
-    console.log("=== RENDERING ===");
-    console.log("Current filter:", currentFilter);
-    console.log("Total items to render:", allItems.length);
-    console.log("Events:", filteredEvents.length);
-    console.log("Quotes:", filteredQuotes.length);
-    console.log("Filtered quotes:", filteredQuotes.map(q => ({ id: q.id, status: q.status })));
-    console.log("=== END RENDERING ===");
 
-    if (allItems.length === 0) {
+    if (filteredMerged.length === 0) {
         eventsList.innerHTML = `
             <div class="text-center py-5">
                 <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
@@ -430,9 +465,30 @@ function renderEvents() {
         return;
     }
 
-    eventsList.innerHTML = allItems.map(item => {
-        if (item.type === 'quote') {
-            const quote = item.data;
+    // Clear and create cards with event listeners
+    eventsList.innerHTML = '';
+    
+    filteredMerged.forEach(item => {
+        const event = item.event;
+        const quote = item.quote;
+        
+        // Use event data if available, otherwise use quote data
+        const eventId = event ? event.id : (quote ? quote.eventId : null);
+        const eventName = event ? event.name : (quote ? quote.eventName : "ללא שם");
+        const eventDate = event ? event.eventDate : (quote ? quote.eventDate : null);
+        const startTime = event ? event.startTime : (quote ? quote.startTime : null);
+        const location = event ? event.location : (quote ? quote.location : null);
+        const participantCount = event ? event.participantCount : (quote ? quote.participantCount : 0);
+        
+        // Determine status based on quote if exists, otherwise use event status
+        let statusText = 'טיוטה';
+        let statusClass = 'status-draft';
+        let statusIcon = 'edit';
+        let showPrice = false;
+        let price = null;
+        
+        if (quote) {
+            // If quote exists, use quote status
             const status = quote.status || '';
             const isDraft = status === 'DRAFT' || status === 'draft';
             const isPending = status === 'QUOTE_PENDING' ||
@@ -442,135 +498,211 @@ function renderEvents() {
                             status === 'PENDING_APPROVAL' ||
                             status === 'submitted' ||
                             status === 'SUBMITTED';
-            const isApproved = status === 'APPROVED' || status === 'approved';
-            const isRejected = status === 'REJECTED' || status === 'rejected';
+            const isPendingClientFinal = status === 'PENDING_CLIENT_FINAL';
+            const isApproved = status === 'APPROVED' || status === 'approved' || status === 'CLIENT_APPROVED';
+            const isRejected = status === 'REJECTED' || status === 'rejected' || status === 'CLIENT_REJECTED';
             
-            let statusText = 'טיוטה';
-            let statusClass = 'status-draft';
-            if (isPending) {
-                statusText = 'ממתין לאישור מנהל';
+            if (isPendingClientFinal) {
+                statusText = 'ממתין לאישור סופי';
                 statusClass = 'status-pending';
+                statusIcon = 'clock';
+                showPrice = true;
+                price = quote.finalPrice || quote.quoteAmount || quote.price;
+            } else if (isPending) {
+                statusText = 'ממתין לאישור';
+                statusClass = 'status-pending';
+                statusIcon = 'clock';
+                showPrice = true;
+                price = quote.quoteAmount || quote.price;
             } else if (isApproved) {
                 statusText = 'אושר';
                 statusClass = 'status-approved';
+                statusIcon = 'check';
+                showPrice = true;
+                price = quote.finalPrice || quote.quoteAmount || quote.price;
             } else if (isRejected) {
                 statusText = 'נדחה';
                 statusClass = 'status-rejected';
+                statusIcon = 'times';
+            } else if (isDraft) {
+                statusText = 'טיוטה';
+                statusClass = 'status-draft';
+                statusIcon = 'edit';
             }
-            
-            return `
-                <div class="event-card">
-                    <div class="event-header">
-                        <div class="event-name">${quote.eventName || "ללא שם"}</div>
-                        <span class="event-status ${statusClass}">
-                            <i class="fas fa-${isDraft ? 'edit' : isPending ? 'clock' : isApproved ? 'check' : 'times'}"></i> ${statusText}
-                        </span>
-                    </div>
-                    <div class="event-details">
-                        ${quote.eventDate ? `
-                            <div class="event-detail">
-                                <i class="fas fa-calendar"></i>
-                                <span>${formatDate(quote.eventDate)}</span>
-                            </div>
-                        ` : ''}
-                        ${quote.startTime ? `
-                            <div class="event-detail">
-                                <i class="fas fa-clock"></i>
-                                <span>${formatTime(quote.startTime)}</span>
-                            </div>
-                        ` : ''}
-                        ${quote.location ? `
-                            <div class="event-detail">
-                                <i class="fas fa-map-marker-alt"></i>
-                                <span>${quote.location}</span>
-                            </div>
-                        ` : ''}
-                        ${quote.participantCount ? `
-                            <div class="event-detail">
-                                <i class="fas fa-users"></i>
-                                <span>${quote.participantCount} משתתפים</span>
-                            </div>
-                        ` : ''}
-                        ${quote.quoteAmount || quote.price ? `
-                            <div class="event-detail">
-                                <i class="fas fa-shekel-sign"></i>
-                                <span>${formatPrice(quote.quoteAmount || quote.price)} ₪</span>
-                            </div>
-                        ` : ''}
-                        ${quote.requestedWorkers ? `
-                            <div class="event-detail">
-                                <i class="fas fa-user-tie"></i>
-                                <span>${quote.requestedWorkers} נציגי רישום</span>
-                            </div>
-                        ` : ''}
-                    </div>
-                    <div class="event-actions">
-                        ${isDraft ? `
-                            <button class="btn-event-action btn-primary-action" onclick="sendToManager(${quote.id})">
-                                <i class="fas fa-paper-plane"></i> שלח למנהל
-                            </button>
-                        ` : isPending ? `
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle"></i>
-                                הבקשה נשלחה למנהל החברה לאישור
-                            </small>
-                        ` : isApproved ? `
-                            <small class="text-success">
-                                <i class="fas fa-check-circle"></i>
-                                הבקשה אושרה על ידי המנהל
-                            </small>
-                        ` : isRejected ? `
-                            <small class="text-danger">
-                                <i class="fas fa-times-circle"></i>
-                                הבקשה נדחתה: ${quote.rejectReason || quote.adminNote || 'ללא סיבה'}
-                            </small>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        } else {
-            const event = item.data;
-            return `
-                <div class="event-card">
-                    <div class="event-header">
-                        <div class="event-name">${event.name || "ללא שם"}</div>
-                        <span class="event-status ${getStatusClass(event.status)}">${getStatusText(event.status)}</span>
-                    </div>
-                    <div class="event-details">
-                        <div class="event-detail">
-                            <i class="fas fa-calendar"></i>
-                            <span>${formatDate(event.eventDate)}</span>
-                        </div>
-                        <div class="event-detail">
-                            <i class="fas fa-clock"></i>
-                            <span>${formatTime(event.startTime) || "לא צוין"}</span>
-                        </div>
-                        <div class="event-detail">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <span>${event.location || "לא צוין"}</span>
-                        </div>
-                        <div class="event-detail">
-                            <i class="fas fa-users"></i>
-                            <span>${event.participantCount || 0} משתתפים</span>
-                        </div>
-                    </div>
-                    <div class="event-actions">
-                        <button class="btn-event-action btn-view" onclick="viewEvent(${event.id})">
-                            <i class="fas fa-eye"></i> צפה בפרטים
-                        </button>
-                        ${event.status === 'APPROVED' || event.status === 'CONFIRMED' ? `
-                            <button class="btn-event-action btn-send-message" onclick="openMessageModalForEvent(${event.id})">
-                                <i class="fas fa-envelope"></i> שלח הודעה
-                            </button>
-                        ` : ''}
-                        <button class="btn-event-action btn-danger-action" data-event-id="${event.id}" onclick="deleteEvent(this)">
-                            <i class="fas fa-trash"></i> מחק
-                        </button>
-                    </div>
-                </div>
-            `;
+        } else if (event) {
+            // No quote, use event status
+            statusText = getStatusText(event.status);
+            statusClass = getStatusClass(event.status);
+            statusIcon = event.status === 'PENDING_APPROVAL' || event.status === 'QUOTE_PENDING' ? 'clock' : 
+                        event.status === 'APPROVED' || event.status === 'CONFIRMED' ? 'check' : 'edit';
         }
-    }).join('');
+        
+        const card = document.createElement('div');
+        card.className = 'event-card';
+        card.innerHTML = `
+            <div class="event-header">
+                <div class="event-name">${eventName}</div>
+                <span class="event-status ${statusClass}">
+                    <i class="fas fa-${statusIcon}"></i> ${statusText}
+                </span>
+            </div>
+            <div class="event-details">
+                ${eventDate ? `
+                    <div class="event-detail">
+                        <i class="fas fa-calendar"></i>
+                        <span>${formatDate(eventDate)}</span>
+                    </div>
+                ` : ''}
+                ${startTime ? `
+                    <div class="event-detail">
+                        <i class="fas fa-clock"></i>
+                        <span>${formatTime(startTime)}</span>
+                    </div>
+                ` : ''}
+                ${location ? `
+                    <div class="event-detail">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>${location}</span>
+                    </div>
+                ` : ''}
+                ${participantCount ? `
+                    <div class="event-detail">
+                        <i class="fas fa-users"></i>
+                        <span>${participantCount} משתתפים</span>
+                    </div>
+                ` : ''}
+                ${showPrice && price ? `
+                    <div class="event-detail">
+                        <i class="fas fa-shekel-sign"></i>
+                        <span>${formatPrice(price)} ₪</span>
+                        ${quote && quote.status === 'PENDING_CLIENT_FINAL' ? '<span class="badge bg-success ms-2">מחיר סופי</span>' : ''}
+                    </div>
+                ` : ''}
+                ${quote && quote.requestedWorkers ? `
+                    <div class="event-detail">
+                        <i class="fas fa-user-tie"></i>
+                        <span>${quote.requestedWorkers} נציגי רישום</span>
+                    </div>
+                ` : ''}
+                ${quote && quote.status === 'PENDING_CLIENT_FINAL' && quote.adminNotes ? `
+                    <div class="event-detail mt-2 p-2 bg-light rounded">
+                        <i class="fas fa-comment-alt"></i>
+                        <strong>הערות מנהל:</strong>
+                        <p class="mb-0 mt-1">${quote.adminNotes}</p>
+                    </div>
+                ` : ''}
+            </div>
+            <div class="event-actions">
+                ${quote && quote.status === 'PENDING_CLIENT_FINAL' ? `
+                    <button class="btn-event-action btn-success-action me-2" onclick="event.stopPropagation(); approveFinalQuote(${quote.id})">
+                        <i class="fas fa-check"></i> אישור סופי
+                    </button>
+                    <button class="btn-event-action btn-danger-action" onclick="event.stopPropagation(); rejectFinalQuote(${quote.id})">
+                        <i class="fas fa-times"></i> דחייה
+                    </button>
+                ` : quote && (quote.status === 'DRAFT' || quote.status === 'draft') ? `
+                    <button class="btn-event-action btn-primary-action" onclick="event.stopPropagation(); sendToManager(${quote.id})">
+                        <i class="fas fa-paper-plane"></i> שלח למנהל
+                    </button>
+                ` : quote && (quote.status === 'QUOTE_PENDING' ||
+                              quote.status === 'SENT_TO_MANAGER' || 
+                              quote.status === 'MANAGER_REVIEW' || 
+                              quote.status === 'pending_approval' || 
+                              quote.status === 'PENDING_APPROVAL' ||
+                              quote.status === 'submitted' ||
+                              quote.status === 'SUBMITTED') ? `
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        הבקשה נשלחה למנהל החברה לאישור
+                    </small>
+                ` : quote && (quote.status === 'APPROVED' || quote.status === 'approved' || quote.status === 'CLIENT_APPROVED') ? `
+                    <small class="text-success">
+                        <i class="fas fa-check-circle"></i>
+                        הבקשה אושרה על ידי המנהל
+                    </small>
+                ` : quote && (quote.status === 'REJECTED' || quote.status === 'rejected' || quote.status === 'CLIENT_REJECTED') ? `
+                    <small class="text-danger">
+                        <i class="fas fa-times-circle"></i>
+                        הבקשה נדחתה: ${quote.rejectReason || quote.adminNote || 'ללא סיבה'}
+                    </small>
+                ` : event ? `
+                    <button class="btn-event-action btn-view" onclick="event.stopPropagation(); viewEvent(${event.id})">
+                        <i class="fas fa-eye"></i> צפה בפרטים
+                    </button>
+                    ${event.status === 'APPROVED' || event.status === 'CONFIRMED' ? `
+                        <button class="btn-event-action btn-send-message" onclick="event.stopPropagation(); openMessageModalForEvent(${event.id})">
+                            <i class="fas fa-envelope"></i> שלח הודעה
+                        </button>
+                    ` : ''}
+                    <button class="btn-event-action btn-danger-action" data-event-id="${event.id}" onclick="event.stopPropagation(); deleteEvent(this)">
+                        <i class="fas fa-trash"></i> מחק
+                    </button>
+                ` : ''}
+            </div>
+        `;
+        
+        // Make card clickable if it has a quote
+        if (quote) {
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', (e) => {
+                // Don't open modal if clicking on buttons or action area
+                if (!e.target.closest('.btn-event-action') && !e.target.closest('.event-actions')) {
+                    openQuoteDetailsModal(quote);
+                }
+            });
+        }
+        
+        eventsList.appendChild(card);
+    });
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, s => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+    }[s]));
+}
+
+function openQuoteDetailsModal(q) {
+    const modal = document.createElement("div");
+    modal.className = "xmile-modal-overlay";
+    modal.innerHTML = `
+        <div class="xmile-modal">
+            <div class="xmile-modal-header">
+                <h3>פרטי הצעת המחיר</h3>
+                <button class="xmile-modal-close">✕</button>
+            </div>
+
+            <div class="xmile-modal-body">
+                <div><b>אירוע:</b> ${escapeHtml(q.eventName || "-")}</div>
+                <div><b>תאריך:</b> ${escapeHtml(q.eventDate ? formatDate(q.eventDate) : "-")} | <b>שעה:</b> ${escapeHtml(q.startTime ? formatTime(q.startTime) : "-")}</div>
+                <div><b>מיקום:</b> ${escapeHtml(q.location || "-")}</div>
+                <div><b>מספר משתתפים:</b> ${q.participantCount || "-"}</div>
+                <hr/>
+                <div><b>מחיר סופי:</b> ₪ ${q.finalPrice ? formatPrice(q.finalPrice) : (q.quoteAmount ? formatPrice(q.quoteAmount) : "-")}</div>
+                <div><b>מספר עובדים מועדף:</b> ${q.workersNeeded || q.requestedWorkers || "-"}</div>
+                <hr/>
+                <div><b>הערות מנהל:</b></div>
+                <div class="xmile-notes">${escapeHtml(q.adminNotes || q.adminNote || q.notes || "אין הערות")}</div>
+                ${q.status ? `<div class="mt-2"><b>סטטוס:</b> ${escapeHtml(q.status)}</div>` : ''}
+            </div>
+
+            <div class="xmile-modal-footer">
+                <button class="xmile-btn" id="closeModalBtn">סגירה</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+    modal.querySelector(".xmile-modal-close").onclick = close;
+    modal.querySelector("#closeModalBtn").onclick = close;
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
 }
 
 function getStatusText(status) {

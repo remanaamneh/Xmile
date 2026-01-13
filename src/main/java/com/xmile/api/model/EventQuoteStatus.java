@@ -11,6 +11,9 @@ public enum EventQuoteStatus {
     QUOTE_PENDING,  // 🔥 חובה – ממתין לאישור מנהל
     SENT_TO_MANAGER, // Customer sent to manager (pending approval)
     MANAGER_REVIEW,  // Manager is reviewing the quote (pending approval)
+    PENDING_CLIENT_FINAL, // Manager sent final quote, waiting for client approval
+    CLIENT_APPROVED, // Client approved the final quote
+    CLIENT_REJECTED, // Client rejected the final quote
     APPROVED,        // Admin approved and published to workers
     REJECTED,        // Admin rejected
     COMPLETED,       // Event completed

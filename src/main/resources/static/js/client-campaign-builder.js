@@ -406,7 +406,7 @@
           alert("אנא בחרי אירוע תחילה");
           $("loadingContent").style.display = "none";
           btnGen.disabled = false;
-          btnGen.innerHTML = '<i class="fas fa-magic"></i> צור תוכן עם AI';
+          btnGen.innerHTML = '<i class="fas fa-magic"></i> שפרי את ההודעה עם AI';
           return;
         }
 
@@ -424,14 +424,27 @@
         body: JSON.stringify({ campaignId, prompt })
       });
 
-      // Validate response format - must have texts array
+      // Validate response format - must have options or texts array
       if (!data || typeof data !== 'object') {
         console.error("Invalid AI response format:", data);
         alert("שגיאה: השרת החזיר תגובה לא תקינה. בדקי את ה-Console ו-Network.");
         return;
       }
 
-      const texts = Array.isArray(data.texts) ? data.texts : [];
+      // Support both "options" (new format with channel) and "texts" (backward compatibility)
+      let texts = [];
+      if (Array.isArray(data.options)) {
+        // New format: options is array of {channel, text}
+        texts = data.options.map(opt => {
+          if (typeof opt === 'object' && opt.text) {
+            return opt.text;
+          }
+          return typeof opt === 'string' ? opt : "";
+        });
+      } else if (Array.isArray(data.texts)) {
+        // Backward compatibility: texts is array of strings
+        texts = data.texts;
+      }
 
       // Ensure we have exactly 3 texts
       if (texts.length < 3) {
@@ -487,13 +500,19 @@
     } finally {
       $("loadingContent").style.display = "none";
       btnGen.disabled = false;
-      btnGen.innerHTML = '<i class="fas fa-magic"></i> צור תוכן עם AI';
+      btnGen.innerHTML = '<i class="fas fa-magic"></i> שפרי את ההודעה עם AI';
     }
   }
 
   function setSelectedContentOption(idx) {
     selectedContentIndex = idx;
 
+    // Update radio buttons
+    document.querySelectorAll(".option-radio").forEach(radio => {
+      radio.checked = Number(radio.value) === idx;
+    });
+
+    // Update card selection
     document.querySelectorAll(".option-card").forEach(card => {
       card.classList.toggle("selected", Number(card.dataset.index) === idx);
     });
@@ -706,13 +725,26 @@
 
   $("btnGenerateAi").addEventListener("click", generateAIContent);
   
-  // Bind pick buttons
-  document.querySelectorAll(".btnPick").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const idx = Number(btn.dataset.index);
-      if (!aiOptions[idx]) return;
-      setSelectedContentOption(idx);
-    });
+  // Bind option cards - make them clickable
+  // Use event delegation since cards are dynamically shown/hidden
+  document.addEventListener("click", (e) => {
+    const card = e.target.closest(".option-card");
+    if (card && !e.target.closest(".option-radio")) {
+      const idx = Number(card.dataset.index);
+      if (aiOptions && aiOptions[idx]) {
+        setSelectedContentOption(idx);
+      }
+    }
+  });
+
+  // Also handle radio button changes
+  document.addEventListener("change", (e) => {
+    if (e.target.classList.contains("option-radio") && e.target.checked) {
+      const idx = Number(e.target.value);
+      if (aiOptions && aiOptions[idx]) {
+        setSelectedContentOption(idx);
+      }
+    }
   });
 
   $("btn1Next").addEventListener("click", async () => {

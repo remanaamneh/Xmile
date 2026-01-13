@@ -754,6 +754,66 @@ public class QuoteService {
     }
 
     /**
+     * Client approves the final quote (status = PENDING_CLIENT_FINAL)
+     * Sets status to CLIENT_APPROVED
+     */
+    @Transactional
+    public QuoteRequestDTO approveFinalQuoteByClient(Long quoteId, Long clientUserId) {
+        EventQuote quote = quoteRepository.findByIdAndClientUserId(quoteId, clientUserId)
+                .orElseThrow(() -> new RuntimeException("Quote request not found or access denied"));
+
+        if (quote.getStatus() != EventQuoteStatus.PENDING_CLIENT_FINAL) {
+            throw new IllegalStateException("Only quotes with status PENDING_CLIENT_FINAL can be approved by client");
+        }
+
+        quote.setStatus(EventQuoteStatus.CLIENT_APPROVED);
+        quote.setApprovedAt(LocalDateTime.now());
+        quote = quoteRepository.save(quote);
+
+        // Update event status to APPROVED
+        Event event = quote.getEvent();
+        if (event != null) {
+            event.setStatus(EventStatus.APPROVED);
+            eventRepository.save(event);
+        }
+
+        quote = quoteRepository.findByIdWithRelations(quote.getId())
+                .orElseThrow(() -> new RuntimeException("Failed to reload quote with relations"));
+
+        return toQuoteRequestDTO(quote);
+    }
+
+    /**
+     * Client rejects the final quote (status = PENDING_CLIENT_FINAL)
+     * Sets status to CLIENT_REJECTED
+     */
+    @Transactional
+    public QuoteRequestDTO rejectFinalQuoteByClient(Long quoteId, Long clientUserId) {
+        EventQuote quote = quoteRepository.findByIdAndClientUserId(quoteId, clientUserId)
+                .orElseThrow(() -> new RuntimeException("Quote request not found or access denied"));
+
+        if (quote.getStatus() != EventQuoteStatus.PENDING_CLIENT_FINAL) {
+            throw new IllegalStateException("Only quotes with status PENDING_CLIENT_FINAL can be rejected by client");
+        }
+
+        quote.setStatus(EventQuoteStatus.CLIENT_REJECTED);
+        quote.setRejectedAt(LocalDateTime.now());
+        quote = quoteRepository.save(quote);
+
+        // Update event status to CANCELLED
+        Event event = quote.getEvent();
+        if (event != null) {
+            event.setStatus(EventStatus.CANCELLED);
+            eventRepository.save(event);
+        }
+
+        quote = quoteRepository.findByIdWithRelations(quote.getId())
+                .orElseThrow(() -> new RuntimeException("Failed to reload quote with relations"));
+
+        return toQuoteRequestDTO(quote);
+    }
+
+    /**
      * Convert EventQuote to QuoteRequestDTO
      * Note: All relations should be eagerly loaded via JOIN FETCH queries
      */
@@ -793,9 +853,11 @@ public class QuoteService {
                 .productionCompanyName(quote.getProductionCompany() != null ? quote.getProductionCompany().getName() : null)
                 .workersNeeded(quote.getRequestedWorkers())
                 .quoteAmount(quote.getQuoteAmount())
+                .finalPrice(quote.getFinalPrice())
                 .status(statusDisplay)
                 .notes(notes)
                 .adminNote(adminNote)
+                .adminNotes(quote.getAdminNotes())
                 .rejectReason(rejectReason)
                 .createdAt(quote.getCreatedAt())
                 .updatedAt(quote.getUpdatedAt())
