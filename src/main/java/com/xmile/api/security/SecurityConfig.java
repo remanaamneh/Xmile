@@ -57,7 +57,13 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/health", "/api/info", "/auth/**", "/api/chatbot/**").permitAll()
+                        // login / register פתוחים
+                        .requestMatchers("/auth/login", "/auth/register").permitAll()
+
+                        // me חייב להיות עם token
+                        .requestMatchers("/auth/me").authenticated()
+
+                        .requestMatchers("/health", "/api/info", "/api/chatbot/**").permitAll()
                         // API endpoints - check BEFORE static resources
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/client/**").hasRole("CLIENT")

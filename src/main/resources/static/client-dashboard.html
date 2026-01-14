@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,89 +10,218 @@
     <link href="css/chatbot-widget.css" rel="stylesheet">
 </head>
 <body>
-    <!-- Header -->
-    <header class="dashboard-header">
-        <div class="container-fluid">
-            <div class="d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center gap-3">
-                    <button class="btn-back" onclick="logout()">
-                        <i class="fas fa-sign-out-alt"></i>
-                        התנתק
-                    </button>
-                    <div class="user-profile">
-                        <div class="user-avatar">
-                            <i class="fas fa-building"></i>
-                        </div>
-                        <div class="user-info">
-                            <div class="user-name" id="userName">לקוח עסקי</div>
-                            <div class="user-role">לקוח עסקי</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="header-center">
-                    <div class="logo-section">
-                        <span class="logo-text">Xmile</span>
-                        <span class="logo-tagline">בית של פתרונות רישום</span>
-                    </div>
-                </div>
-                
-                <div class="header-right">
-                    <button class="btn-notification">
-                        <i class="fas fa-bell"></i>
-                        <span class="notification-badge" id="notificationCount">0</span>
-                    </button>
-                </div>
-            </div>
+    <!-- Main Content (NEW LAYOUT) -->
+    <main class="xm-layout">
+      <!-- Sidebar -->
+      <aside class="xm-sidebar">
+        <div class="xm-brand">
+          <img src="/assets/images/xmile-logo.png"
+               alt="XMILE"
+               class="xm-brand-logo" />
         </div>
-    </header>
 
-    <!-- Main Content -->
-    <main class="dashboard-main">
-        <div class="container-fluid">
-            <!-- Welcome Section -->
-            <div class="welcome-section mb-4">
-                <h1 class="welcome-title">
-                    <span class="wave">👋</span> ברוך הבא
-                </h1>
-                <p class="welcome-subtitle">ניהול האירועים וההזמנות שלך</p>
+        <nav class="xm-nav">
+          <a class="xm-nav-item active" href="/client-dashboard.html">
+            <i class="fas fa-home"></i><span>Dashboard</span>
+          </a>
+          <a class="xm-nav-item" href="/events.html">
+            <i class="fas fa-calendar"></i><span>Events</span>
+          </a>
+          <a class="xm-nav-item" href="/participants.html">
+            <i class="fas fa-users"></i><span>Participants</span>
+          </a>
+          <a class="xm-nav-item" href="/attendance-confirmation.html">
+            <i class="fas fa-check-circle"></i><span>Attendance Confirmation</span>
+          </a>
+          <a class="xm-nav-item" href="/client-campaign-builder.html">
+            <i class="fas fa-wand-magic-sparkles"></i><span>AI Marketing</span>
+          </a>
+          <a class="xm-nav-item" href="/templates.html">
+            <i class="fas fa-layer-group"></i><span>Templates</span>
+          </a>
+          <a class="xm-nav-item" href="/analytics.html">
+            <i class="fas fa-chart-line"></i><span>Analytics</span>
+          </a>
+        </nav>
+
+        <div class="xm-sidebar-footer">
+          <div class="xm-user-mini">
+            <div class="xm-user-avatar"><span id="xmUserInitials">SJ</span></div>
+            <div class="xm-user-meta">
+              <div class="xm-user-name" id="xmUserNameMini">Client</div>
+              <div class="xm-user-email" id="xmUserEmailMini">—</div>
             </div>
+          </div>
+        </div>
+      </aside>
 
-            <!-- Action Buttons -->
-            <div class="action-buttons mb-5">
-                <button type="button" class="btn-action btn-primary-action" id="quoteBtn">
-                    <i class="fas fa-calculator"></i>
-                    בדיקת הצעת מחיר לאירוע
+      <!-- Content -->
+      <section class="xm-content">
+        <!-- Topbar -->
+        <div class="xm-topbar">
+          <div class="xm-search">
+            <i class="fas fa-search"></i>
+            <input id="xmSearch" type="text" placeholder="Search events, participants..." />
+          </div>
+
+          <div class="xm-top-actions">
+            <div class="xm-user-menu">
+              <button class="xm-user-btn" type="button" id="xmUserMenuBtn">
+                <span class="xm-user-chip" id="xmUserChip">SJ</span>
+                <span class="xm-user-label" id="xmUserLabel">Client</span>
+                <i class="fas fa-chevron-down"></i>
+                <span class="xm-dot" id="xmNotifDot"></span>
+              </button>
+
+              <div class="xm-user-dropdown" id="xmUserDropdown">
+                <button class="xm-dd-item" type="button" onclick="window.location.href='/client-profile.html'">
+                  <i class="fas fa-user"></i> Profile
                 </button>
-                <a href="/client-campaign-builder.html" class="btn-action btn-secondary-action">
-                    <i class="fas fa-envelope"></i>
-                    יצירת הודעה למשתתפים
-                </a>
+                <button class="xm-dd-item" type="button" onclick="window.location.href='/settings.html'">
+                  <i class="fas fa-gear"></i> Settings
+                </button>
+                <button class="xm-dd-item" type="button" onclick="window.location.href='/notifications.html'">
+                  <i class="fas fa-bell"></i> Notifications
+                </button>
+                <div class="xm-dd-sep"></div>
+                <button class="xm-dd-item danger" type="button" onclick="logout()">
+                  <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+              </div>
             </div>
-
-            <!-- Events History Section -->
-            <div class="events-history-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i class="fas fa-history"></i>
-                        היסטוריית האירועים שלי
-                    </h2>
-                    <div class="filter-buttons">
-                        <button class="filter-btn active" onclick="filterEvents('all')">הכל</button>
-                        <button class="filter-btn" onclick="filterEvents('pending')">ממתינים לאישור</button>
-                        <button class="filter-btn" onclick="filterEvents('approved')">מאושרים</button>
-                        <button class="filter-btn" onclick="filterEvents('completed')">הושלמו</button>
-                    </div>
-                </div>
-
-                <div class="events-list" id="eventsList">
-                    <div class="loading-state">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <p>טוען אירועים...</p>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
+
+        <!-- Welcome Section -->
+        <div class="xm-welcome">
+          <div class="xm-welcome-text">
+            <h1>Welcome back, <span id="welcomeUser">Client</span></h1>
+            <p>Here's what's happening with your events today.</p>
+          </div>
+
+          <div class="xm-welcome-actions">
+            <button class="xm-btn-outline" onclick="window.location.href='/events.html'">
+              <i class="fas fa-calendar"></i> View Events
+            </button>
+            <button class="xm-btn-primary" onclick="window.location.href='/attendance-confirmation.html'">
+              <i class="fas fa-envelope"></i> Send Confirmations
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="xm-kpis">
+          <div class="xm-kpi">
+            <div class="xm-kpi-top">
+              <div class="xm-kpi-title">Active Events</div>
+              <div class="xm-kpi-icon xm-i-mint"><i class="fas fa-calendar"></i></div>
+            </div>
+            <div class="xm-kpi-value" id="kpiActiveEvents">0</div>
+            <div class="xm-kpi-sub" id="kpiActiveEventsSub">—</div>
+          </div>
+
+          <div class="xm-kpi">
+            <div class="xm-kpi-top">
+              <div class="xm-kpi-title">Total Participants</div>
+              <div class="xm-kpi-icon xm-i-blue"><i class="fas fa-users"></i></div>
+            </div>
+            <div class="xm-kpi-value" id="kpiTotalParticipants">0</div>
+            <div class="xm-kpi-sub" id="kpiTotalParticipantsSub">—</div>
+          </div>
+
+          <div class="xm-kpi">
+            <div class="xm-kpi-top">
+              <div class="xm-kpi-title">Confirmed</div>
+              <div class="xm-kpi-icon xm-i-green"><i class="fas fa-check-circle"></i></div>
+            </div>
+            <div class="xm-kpi-value" id="kpiConfirmed">0</div>
+            <div class="xm-kpi-sub" id="kpiConfirmedSub">—</div>
+          </div>
+
+          <div class="xm-kpi">
+            <div class="xm-kpi-top">
+              <div class="xm-kpi-title">Messages Sent</div>
+              <div class="xm-kpi-icon xm-i-purple"><i class="fas fa-envelope"></i></div>
+            </div>
+            <div class="xm-kpi-value" id="kpiMessages">0</div>
+            <div class="xm-kpi-sub" id="kpiMessagesSub">—</div>
+          </div>
+        </div>
+
+        <!-- Grid Row -->
+        <div class="xm-grid">
+          <!-- Recent Events -->
+          <div class="xm-card">
+            <div class="xm-card-head">
+              <div class="xm-card-title">Recent Events</div>
+              <button class="xm-link" type="button" onclick="filterEvents('all')">View All →</button>
+            </div>
+
+            <div class="xm-list" id="xmRecentEvents">
+              <div class="xm-skeleton">טוען...</div>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="xm-card">
+            <div class="xm-card-head">
+              <div class="xm-card-title">Quick Actions</div>
+            </div>
+
+            <div class="xm-actions">
+              <button class="xm-action" type="button" onclick="openQuoteModal()">
+                <i class="fas fa-plus"></i> Create New Event
+              </button>
+
+              <button class="xm-action" type="button" onclick="window.location.href='/participants.html'">
+                <i class="fas fa-file-upload"></i> Upload Participants
+              </button>
+
+              <button class="xm-action" type="button" onclick="window.location.href='/attendance-confirmation.html'">
+                <i class="fas fa-check"></i> Send Confirmations
+              </button>
+
+              <button class="xm-action" type="button" onclick="window.location.href='/client-campaign-builder.html'">
+                <i class="fas fa-wand-magic-sparkles"></i> Create AI Campaign
+              </button>
+            </div>
+          </div>
+
+          <!-- Overall Confirmation -->
+          <div class="xm-card xm-full">
+            <div class="xm-card-head">
+              <div class="xm-card-title">Overall Confirmation</div>
+            </div>
+
+            <div class="xm-progress-wrap">
+              <div class="xm-progress-top">
+                <div class="xm-muted">Progress</div>
+                <div class="xm-strong"><span id="sumConfirmed">0</span>/<span id="sumTotal">0</span></div>
+              </div>
+
+              <div class="xm-progress">
+                <div class="xm-progress-bar" id="xmProgressBar" style="width:0%"></div>
+              </div>
+
+              <div class="xm-triplets">
+                <div class="xm-trip">
+                  <div class="xm-trip-num xm-c-green" id="sumConfirmed2">0</div>
+                  <div class="xm-trip-label">Confirmed</div>
+                </div>
+                <div class="xm-trip">
+                  <div class="xm-trip-num xm-c-orange" id="sumPending">0</div>
+                  <div class="xm-trip-label">Pending</div>
+                </div>
+                <div class="xm-trip">
+                  <div class="xm-trip-num xm-c-red" id="sumDeclined">0</div>
+                  <div class="xm-trip-label">Declined</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
     </main>
 
     <!-- Quote Request Modal -->

@@ -3,6 +3,7 @@
  * Note: API_BASE is loaded from config.js
  *********************************/
 // API_BASE is defined in config.js (loaded before this file)
+const API_BASE = window.API_BASE || "";
 const EVENTS_URL = `${API_BASE}/events`;
 const QUOTES_URL = `${API_BASE}/quotes`;
 const MESSAGES_URL = `${API_BASE}/messages`;
@@ -98,6 +99,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     console.log('Client dashboard initialized');
+    
+    // Initialize search and user menu
+    initXmSearch();
+    initUserMenu();
 });
 
 /*********************************
@@ -239,18 +244,52 @@ async function sendToManager(quoteId) {
 }
 
 async function loadUserInfo() {
-    const token = getToken();
-    if (!token) return;
+  const token = getToken();
+  if (!token) return;
 
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const userNameEl = document.getElementById("userName");
-        if (userNameEl && payload.email) {
-            userNameEl.textContent = payload.email.split('@')[0];
-        }
-    } catch (err) {
-        console.error("Error loading user info:", err);
+  let username = "";
+
+  // 1) נסיון מהשרת (הכי אמין)
+  try {
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: "Bearer " + token }
+    });
+
+    if (res.ok) {
+      const me = await res.json();
+
+      // התאמה לשמות שדות נפוצים
+      username =
+        me.name ||
+        me.fullName ||
+        me.username ||
+        (me.email ? me.email.split("@")[0] : "");
     }
+  } catch (e) {
+    console.warn("auth/me failed – using token fallback");
+  }
+
+  // 2) fallback מהטוקן (רק אם לא קיבלנו שם מהשרת)
+  if (!username) {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      if (payload.name && !/^\d+$/.test(payload.name)) username = payload.name;
+      else if (payload.username && !/^\d+$/.test(payload.username)) username = payload.username;
+      else if (payload.email && payload.email.includes("@")) username = payload.email.split("@")[0];
+    } catch (e) {}
+  }
+
+  // 3) הגנה סופית
+  if (!username || /^\d+$/.test(username)) username = "Client";
+
+  // עדכון UI
+  const welcomeEl = document.getElementById("welcomeUser");
+  const labelEl = document.getElementById("xmUserLabel");
+  const chipEl = document.getElementById("xmUserChip");
+
+  if (welcomeEl) welcomeEl.textContent = username;
+  if (labelEl) labelEl.textContent = username;
+  if (chipEl) chipEl.textContent = username.slice(0, 2).toUpperCase();
 }
 
 /*********************************
@@ -357,6 +396,9 @@ async function fetchEvents() {
         
         // Store merged data
         currentMergedData = Array.from(byEventId.values());
+        
+        // Apply search filter if exists
+        applySearchToDashboard();
         
         if (currentMergedData.length === 0) {
             eventsListEl.innerHTML = `
@@ -1696,3 +1738,219 @@ async function sendMessages() {
     }
 }
 
+/*********************************
+ * DASHBOARD STATS & UI
+ *********************************/
+function computeDashboardStats() {
+  // Active events = מאושרים/confirmed (Event) או Quote Approved/CLIENT_APPROVED
+  const isApprovedQuote = (q) => {
+    const s = (q?.status || "").toUpperCase();
+    return ["APPROVED", "CLIENT_APPROVED", "CONFIRMED"].includes(s);
+  };
+
+  const isPendingQuote = (q) => {
+    const s = (q?.status || "").toUpperCase();
+    return ["QUOTE_PENDING","PENDING_APPROVAL","SENT_TO_MANAGER","MANAGER_REVIEW","SUBMITTED","PENDING_CLIENT_FINAL","DRAFT"].includes(s);
+  };
+
+  const isDeclinedQuote = (q) => {
+    const s = (q?.status || "").toUpperCase();
+    return ["REJECTED","CLIENT_REJECTED","CANCELLED","CLOSED"].includes(s);
+  };
+
+  const activeEvents = currentMergedData.filter(x => {
+    if (x.quote) return isApprovedQuote(x.quote);
+    const st = (x.event?.status || "").toUpperCase();
+    return ["APPROVED","CONFIRMED"].includes(st);
+  }).length;
+
+  const totalParticipants = currentMergedData.reduce((sum, x) => {
+    const pc = x.event?.participantCount ?? x.quote?.participantCount ?? 0;
+    return sum + (parseInt(pc, 10) || 0);
+  }, 0);
+
+  const confirmed = currentMergedData.reduce((sum, x) => {
+    // "Confirmed" לפי Quotes מאושרים (או אירוע CONFIRMED)
+    if (x.quote && isApprovedQuote(x.quote)) return sum + 1;
+    const st = (x.event?.status || "").toUpperCase();
+    if (["CONFIRMED","APPROVED"].includes(st)) return sum + 1;
+    return sum;
+  }, 0);
+
+  // Messages Sent: אם אין לך API של סטטיסטיקה, נשים כרגע 0 או נשמור LocalStorage
+  const messagesSent = parseInt(localStorage.getItem("xm_messages_sent") || "0", 10) || 0;
+
+  // Overall confirmation breakdown (כאן זה ברמת אירועים/בקשות)
+  const pending = currentMergedData.filter(x => x.quote ? isPendingQuote(x.quote) : ["PENDING_APPROVAL","QUOTE_PENDING"].includes((x.event?.status||"").toUpperCase())).length;
+  const declined = currentMergedData.filter(x => x.quote ? isDeclinedQuote(x.quote) : ["CANCELLED"].includes((x.event?.status||"").toUpperCase())).length;
+
+  return { activeEvents, totalParticipants, confirmed, messagesSent, pending, declined };
+}
+
+function renderDashboardUI() {
+  const s = computeDashboardStats();
+
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  setText("kpiActiveEvents", s.activeEvents);
+  setText("kpiTotalParticipants", s.totalParticipants.toLocaleString("he-IL"));
+  setText("kpiConfirmed", s.confirmed);
+  setText("kpiMessages", s.messagesSent.toLocaleString("he-IL"));
+
+  setText("sumConfirmed", s.confirmed);
+  setText("sumConfirmed2", s.confirmed);
+  setText("sumPending", s.pending);
+  setText("sumDeclined", s.declined);
+
+  const total = Math.max(1, s.confirmed + s.pending + s.declined);
+  setText("sumTotal", total);
+
+  const pct = Math.round((s.confirmed / total) * 100);
+  const bar = document.getElementById("xmProgressBar");
+  if (bar) bar.style.width = `${pct}%`;
+
+  // Recent events list will be rendered by renderRecentEventsWithSearch()
+}
+
+// ===== Search (REAL FILTER) =====
+let xmSearchQuery = "";
+
+function normalizeText(s) {
+  return (s || "")
+    .toString()
+    .toLowerCase()
+    .trim();
+}
+
+function getMergedDisplayItems() {
+  // מחזיר רשימה מאוחדת עם שדות נוחים לחיפוש
+  return (currentMergedData || []).map(x => {
+    const name = x.event?.name || x.quote?.eventName || "";
+    const location = x.event?.location || x.quote?.location || "";
+    const date = x.event?.eventDate || x.quote?.eventDate || "";
+    const time = x.event?.startTime || x.quote?.startTime || "";
+    const participants = x.event?.participantCount ?? x.quote?.participantCount ?? 0;
+    const status = (x.quote?.status || x.event?.status || "").toString();
+
+    return { raw: x, name, location, date, time, participants, status };
+  });
+}
+
+function applySearchToDashboard() {
+  // 1) מסנן Recent Events
+  renderDashboardUI(); // renderDashboardUI כבר יקרא ל-currentMergedData
+  renderRecentEventsWithSearch();
+
+  // 2) מסנן את Events List הקיימת (החלק הגדול של cards)
+  // נעשה "פילטר נוסף" לפני renderEvents
+  renderEventsWithSearch();
+}
+
+function renderRecentEventsWithSearch() {
+  const list = document.getElementById("xmRecentEvents");
+  if (!list) return;
+
+  const q = normalizeText(xmSearchQuery);
+  const items = getMergedDisplayItems()
+    .filter(it => {
+      if (!q) return true;
+      const hay = normalizeText(`${it.name} ${it.location} ${it.status}`);
+      return hay.includes(q);
+    })
+    .sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0))
+    .slice(0, 5);
+
+  if (items.length === 0) {
+    list.innerHTML = `<div class="xm-skeleton">No matching events</div>`;
+    return;
+  }
+
+  list.innerHTML = items.map(it => {
+    const x = it.raw;
+    const name = it.name || "Event";
+    const date = it.date;
+    const total = it.participants || 0;
+
+    const st = (x.quote?.status || x.event?.status || "DRAFT").toUpperCase();
+    let chipClass = "draft", chipText = "Draft";
+    if (["APPROVED","CONFIRMED","CLIENT_APPROVED"].includes(st)) { chipClass="ok"; chipText="Active"; }
+    else if (["QUOTE_PENDING","PENDING_APPROVAL","SENT_TO_MANAGER","MANAGER_REVIEW","SUBMITTED","PENDING_CLIENT_FINAL"].includes(st)) { chipClass="pending"; chipText="Pending"; }
+
+    return `
+      <div class="xm-item xm-click" onclick="xmOpenFromRecent(${x.quote?.id || "null"}, ${x.event?.id || "null"})">
+        <div class="xm-item-left">
+          <div class="xm-item-ic"><i class="fas fa-calendar"></i></div>
+          <div>
+            <div class="xm-item-title">${escapeHtml(name)}</div>
+            <div class="xm-item-sub">${date ? formatDate(date) : "—"}</div>
+          </div>
+        </div>
+        <div class="xm-item-right">
+          <div class="xm-item-sub">${total} participants</div>
+          <span class="xm-chip ${chipClass}">${chipText}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+// לחיצה על Recent Events: אם יש Quote -> פותח Quote modal, אחרת viewEvent
+window.xmOpenFromRecent = function(quoteId, eventId) {
+  if (quoteId && !isNaN(Number(quoteId))) {
+    const q = currentQuotes.find(qr => qr.id === Number(quoteId));
+    if (q) openQuoteDetailsModal(q);
+    return;
+  }
+  if (eventId && !isNaN(Number(eventId))) {
+    viewEvent(Number(eventId));
+  }
+};
+
+function renderEventsWithSearch() {
+  const q = normalizeText(xmSearchQuery);
+
+  // אם אין חיפוש – נרנדר רגיל
+  if (!q) {
+    renderEvents();
+    return;
+  }
+
+  // ניצור פילטר "חיפוש" על בסיס מה ש-renderEvents כבר עושה לפי currentFilter
+  const originalMerged = currentMergedData;
+  const filtered = getMergedDisplayItems()
+    .filter(it => {
+      const hay = normalizeText(`${it.name} ${it.location} ${it.status}`);
+      return hay.includes(q);
+    })
+    .map(it => it.raw);
+
+  // נחליף זמנית ונחזיר
+  currentMergedData = filtered;
+  renderEvents();
+  currentMergedData = originalMerged;
+}
+
+function initXmSearch() {
+  const inp = document.getElementById("xmSearch");
+  if (!inp) return;
+
+  inp.addEventListener("input", (e) => {
+    xmSearchQuery = e.target.value || "";
+    applySearchToDashboard();
+  });
+}
+
+// ===== User Menu =====
+function initUserMenu() {
+  const btn = document.getElementById("xmUserMenuBtn");
+  const dd = document.getElementById("xmUserDropdown");
+  if (!btn || !dd) return;
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dd.classList.toggle("show");
+  });
+
+  document.addEventListener("click", () => dd.classList.remove("show"));
+  dd.addEventListener("click", (e) => e.stopPropagation());
+}

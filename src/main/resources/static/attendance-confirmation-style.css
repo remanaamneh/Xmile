@@ -1,0 +1,214 @@
+/* Attendance Confirmation — matches XMILE clean UI */
+
+.xm-page-head { margin: 6px 0 14px; }
+.xm-h1 { font-size: 28px; margin: 0; font-weight: 800; }
+.xm-sub { margin: 6px 0 0; color: #6b7280; }
+
+.ac-top-grid {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .ac-top-grid { grid-template-columns: 1fr; }
+}
+
+.ac-card{
+  background:#fff;
+  border: 1px solid #eef1f5;
+  border-radius: 14px;
+  box-shadow: 0 1px 10px rgba(16,24,40,.04);
+  padding: 16px;
+}
+
+.ac-card-title{
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+
+.ac-label{
+  font-size: 13px;
+  font-weight: 700;
+  color:#111827;
+  margin-bottom: 6px;
+}
+
+.ac-input{
+  border-radius: 10px;
+  border:1px solid #e5e7eb;
+}
+
+.ac-hint{
+  margin-top:6px;
+  font-size:12px;
+  color:#6b7280;
+}
+
+.ac-channels{
+  display:flex;
+  flex-direction:column;
+  gap: 8px;
+}
+
+.ac-check{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  font-weight:600;
+  color:#111827;
+}
+
+.ac-btn-primary{
+  width:100%;
+  border:0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-weight: 800;
+  color:#fff;
+  background: linear-gradient(90deg,#0ea5a3,#2563eb);
+}
+
+.ac-btn-primary:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
+
+.ac-progress-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom: 10px;
+}
+
+.ac-rate{
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.ac-muted{ color:#6b7280; font-size: 13px; }
+.ac-right-stat{ text-align:right; }
+.ac-right-num{ font-size: 18px; font-weight: 900; color:#111827; }
+
+.ac-bar{
+  height: 10px;
+  background:#e5e7eb;
+  border-radius: 999px;
+  overflow:hidden;
+  margin: 12px 0 14px;
+}
+
+.ac-bar-fill{
+  height:100%;
+  background:#111827;
+  border-radius: 999px;
+}
+
+.ac-status-grid{
+  display:grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 10px;
+}
+
+@media (max-width: 1100px) {
+  .ac-status-grid{ grid-template-columns: repeat(2,1fr); }
+}
+
+.ac-mini{
+  border:1px solid #eef1f5;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background:#f8fafc;
+  text-align:center;
+}
+
+.ac-mini-num{ font-weight: 900; font-size: 18px; }
+.ac-mini-lbl{ font-size: 12px; color:#6b7280; font-weight: 700; }
+
+.ac-mini-ok{ background:#ecfdf5; border-color:#a7f3d0; }
+.ac-mini-warn{ background:#fffbeb; border-color:#fde68a; }
+.ac-mini-bad{ background:#fef2f2; border-color:#fecaca; }
+.ac-mini-bad2{ background:#fff1f2; border-color:#fecdd3; }
+
+.ac-table-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom: 10px;
+}
+
+.ac-live{
+  font-size: 12px;
+  color:#065f46;
+  background:#ecfdf5;
+  border:1px solid #a7f3d0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.ac-live .ac-dot{
+  width:8px;height:8px;border-radius:999px;background:#10b981;
+  box-shadow:0 0 0 4px rgba(16,185,129,.15);
+}
+
+.ac-table thead th{
+  font-size: 12px;
+  color:#6b7280;
+  font-weight: 900;
+  background:#f9fafb;
+}
+
+.ac-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border:1px solid #e5e7eb;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.ac-pill.email{ background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+.ac-pill.sms{ background:#f5f3ff; border-color:#ddd6fe; color:#6d28d9; }
+.ac-pill.wa{ background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
+
+.ac-badge{
+  display:inline-flex;
+  align-items:center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 12px;
+  border:1px solid transparent;
+}
+
+.ac-badge.PENDING{ background:#f3f4f6; color:#111827; border-color:#e5e7eb; }
+.ac-badge.SENT{ background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
+.ac-badge.VIEWED{ background:#fffbeb; color:#92400e; border-color:#fde68a; }
+.ac-badge.CONFIRMED{ background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
+.ac-badge.DECLINED{ background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
+.ac-badge.FAILED{ background:#fff1f2; color:#9f1239; border-color:#fecdd3; }
+
+.ac-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+}
+
+.ac-btn{
+  border:1px solid #e5e7eb;
+  background:#fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 900;
+}
+
+.ac-btn.ok{ border-color:#a7f3d0; background:#ecfdf5; color:#065f46; }
+.ac-btn.retry{ border-color:#e5e7eb; background:#fff; color:#111827; }

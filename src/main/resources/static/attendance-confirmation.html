@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>XMILE — Attendance Confirmation</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link href="/client-dashboard-style.css" rel="stylesheet">
+  <link href="/attendance-confirmation-style.css" rel="stylesheet">
+</head>
+
+<body>
+<main class="xm-layout">
+
+  <!-- Sidebar -->
+  <aside class="xm-sidebar">
+    <div class="xm-brand">
+      <img src="/assets/images/xmile-logo.png" alt="XMILE" class="xm-brand-logo"/>
+    </div>
+
+    <nav class="xm-nav">
+      <a class="xm-nav-item" href="/client-dashboard.html"><i class="fas fa-home"></i><span>Dashboard</span></a>
+      <a class="xm-nav-item" href="/events.html"><i class="fas fa-calendar"></i><span>Events</span></a>
+      <a class="xm-nav-item" href="/participants.html"><i class="fas fa-users"></i><span>Participants</span></a>
+      <a class="xm-nav-item active" href="/attendance-confirmation.html"><i class="fas fa-check-circle"></i><span>Attendance Confirmation</span></a>
+      <a class="xm-nav-item" href="/client-campaign-builder.html"><i class="fas fa-wand-magic-sparkles"></i><span>AI Marketing</span></a>
+      <a class="xm-nav-item" href="/templates.html"><i class="fas fa-layer-group"></i><span>Templates</span></a>
+      <a class="xm-nav-item" href="/analytics.html"><i class="fas fa-chart-line"></i><span>Analytics</span></a>
+    </nav>
+
+    <div class="xm-sidebar-footer">
+      <div class="xm-user-mini">
+        <div class="xm-user-avatar"><span id="xmUserInitials">CL</span></div>
+        <div class="xm-user-meta">
+          <div class="xm-user-name" id="xmUserNameMini">Client</div>
+          <div class="xm-user-email" id="xmUserEmailMini">—</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <section class="xm-content">
+    <!-- Topbar -->
+    <div class="xm-topbar">
+      <div class="xm-search">
+        <i class="fas fa-search"></i>
+        <input id="xmSearch" type="text" placeholder="Search events, participants..." />
+      </div>
+
+      <div class="xm-top-actions">
+        <div class="xm-user-menu">
+          <button class="xm-user-btn" type="button" id="xmUserMenuBtn">
+            <span class="xm-user-chip" id="xmUserChip">CL</span>
+            <span class="xm-user-label" id="xmUserLabel">Client</span>
+            <i class="fas fa-chevron-down"></i>
+            <span class="xm-dot" id="xmNotifDot" style="display:none;"></span>
+          </button>
+
+          <div class="xm-user-dropdown" id="xmUserDropdown">
+            <button class="xm-dd-item" type="button" onclick="window.location.href='/client-profile.html'">
+              <i class="fas fa-user"></i> Profile
+            </button>
+            <div class="xm-dd-sep"></div>
+            <button class="xm-dd-item danger" type="button" onclick="logout()">
+              <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page header -->
+    <div class="xm-page-head">
+      <div>
+        <h1 class="xm-h1">Attendance Confirmation</h1>
+        <p class="xm-sub">Send and track attendance confirmations</p>
+      </div>
+    </div>
+
+    <!-- Top Cards -->
+    <div class="ac-top-grid">
+      <!-- Compose -->
+      <div class="ac-card">
+        <div class="ac-card-title">Compose Message</div>
+
+        <label class="ac-label">Select Event</label>
+        <select id="acEventSelect" class="form-select ac-input"></select>
+
+        <label class="ac-label mt-3">Confirmation Message</label>
+        <textarea id="acMessage" class="form-control ac-input" rows="4"
+          placeholder="Write your confirmation message..."></textarea>
+        <div class="ac-hint"><span id="acCharCount">0</span>/500 characters</div>
+
+        <div class="mt-3">
+          <div class="ac-label mb-2">Send via</div>
+          <div class="ac-channels">
+            <label class="form-check ac-check">
+              <input class="form-check-input" type="checkbox" id="acChEmail" checked>
+              <span><i class="fas fa-envelope"></i> Email</span>
+            </label>
+            <label class="form-check ac-check">
+              <input class="form-check-input" type="checkbox" id="acChSms">
+              <span><i class="fas fa-message"></i> SMS</span>
+            </label>
+            <label class="form-check ac-check">
+              <input class="form-check-input" type="checkbox" id="acChWa">
+              <span><i class="fab fa-whatsapp"></i> WhatsApp</span>
+            </label>
+          </div>
+        </div>
+
+        <button id="acSendPendingBtn" class="ac-btn-primary mt-3">
+          <i class="fas fa-paper-plane"></i> Send to All Pending (<span id="acPendingCountBtn">0</span>)
+        </button>
+      </div>
+
+      <!-- Progress -->
+      <div class="ac-card">
+        <div class="ac-card-title">Confirmation Progress</div>
+
+        <div class="ac-progress-head">
+          <div>
+            <div class="ac-rate" id="acRate">0%</div>
+            <div class="ac-muted">Confirmation Rate</div>
+          </div>
+          <div class="ac-right-stat">
+            <div class="ac-right-num" id="acConfirmedNum">0</div>
+            <div class="ac-muted">of <span id="acTotalNum">0</span> confirmed</div>
+          </div>
+        </div>
+
+        <div class="ac-bar">
+          <div class="ac-bar-fill" id="acBarFill" style="width:0%"></div>
+        </div>
+
+        <div class="ac-status-grid">
+          <div class="ac-mini">
+            <div class="ac-mini-num" id="acPendingNum">0</div>
+            <div class="ac-mini-lbl">Pending</div>
+          </div>
+          <div class="ac-mini">
+            <div class="ac-mini-num" id="acSentNum">0</div>
+            <div class="ac-mini-lbl">Sent</div>
+          </div>
+          <div class="ac-mini ac-mini-warn">
+            <div class="ac-mini-num" id="acViewedNum">0</div>
+            <div class="ac-mini-lbl">Viewed</div>
+          </div>
+          <div class="ac-mini ac-mini-ok">
+            <div class="ac-mini-num" id="acConfirmedNum2">0</div>
+            <div class="ac-mini-lbl">Confirmed</div>
+          </div>
+          <div class="ac-mini ac-mini-bad">
+            <div class="ac-mini-num" id="acDeclinedNum">0</div>
+            <div class="ac-mini-lbl">Declined</div>
+          </div>
+          <div class="ac-mini ac-mini-bad2">
+            <div class="ac-mini-num" id="acFailedNum">0</div>
+            <div class="ac-mini-lbl">Failed</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="ac-card mt-4">
+      <div class="ac-table-head">
+        <div class="ac-card-title mb-0">Real-time Delivery Tracking</div>
+        <div class="ac-live">
+          <span class="ac-dot"></span> Live Updates
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table ac-table align-middle">
+          <thead>
+          <tr>
+            <th>Participant</th>
+            <th>Channels Used</th>
+            <th>Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+          </thead>
+          <tbody id="acTbody">
+            <tr><td colspan="4" class="text-muted">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/attendance-confirmation.js"></script>
+</body>
+</html>
