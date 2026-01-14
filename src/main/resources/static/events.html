@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>XMILE • Events</title>
+
+  <link rel="stylesheet" href="/bootstrap.min.css" />
+  <link rel="stylesheet" href="/all.min.css" />
+  <link rel="stylesheet" href="/events-style.css" />
+
+  <script src="/js/config.js"></script>
+</head>
+
+<body>
+  <div class="xm-app">
+
+    <!-- LEFT SIDEBAR -->
+    <aside class="xm-sidebar">
+      <div class="xm-brand">
+        <img src="/assets/images/xmile-logo.png" alt="XMILE" class="xm-logo" />
+      </div>
+
+      <nav class="xm-nav">
+        <a class="xm-nav-item" href="/client-dashboard.html"><i class="fas fa-th-large"></i> Dashboard</a>
+        <a class="xm-nav-item active" href="/events.html"><i class="fas fa-calendar"></i> Events</a>
+        <a class="xm-nav-item" href="/participants.html"><i class="fas fa-users"></i> Participants</a>
+        <a class="xm-nav-item" href="/attendance-confirmation.html"><i class="fas fa-check-circle"></i> Attendance Confirmation</a>
+        <a class="xm-nav-item" href="/client-campaign-builder.html"><i class="fas fa-bullhorn"></i> AI Marketing Campaign</a>
+        <a class="xm-nav-item" href="/templates.html"><i class="fas fa-layer-group"></i> Templates</a>
+        <a class="xm-nav-item" href="/analytics.html"><i class="fas fa-chart-line"></i> Analytics</a>
+      </nav>
+
+      <div class="xm-user">
+        <div class="xm-avatar" id="xmAvatar">CL</div>
+        <div class="xm-user-meta">
+          <div class="xm-user-name" id="xmUserName">Client</div>
+          <div class="xm-user-email" id="xmUserEmail">—</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="xm-main">
+      <!-- TOP BAR -->
+      <header class="xm-topbar">
+        <div class="xm-topbar-left">
+          <div class="xm-search">
+            <i class="fas fa-search"></i>
+            <input id="eventsTopSearch" type="text" placeholder="Search events, participants..." />
+          </div>
+        </div>
+
+        <div class="xm-topbar-right">
+          <button class="xm-icon-btn" id="btnBell" title="Notifications"><i class="fas fa-bell"></i></button>
+
+          <div class="xm-user-menu">
+            <button class="xm-user-btn" id="xmUserMenuBtn">
+              <span class="xm-chip" id="xmChip">CL</span>
+              <span id="xmRoleLabel">Client</span>
+              <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="xm-dropdown" id="xmUserDropdown">
+              <button class="xm-dd-item" id="btnSettings"><i class="fas fa-cog"></i> Settings</button>
+              <button class="xm-dd-item danger" id="btnLogout"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- PAGE HEADER -->
+      <section class="xm-pagehead">
+        <div>
+          <h1 class="xm-title">Events</h1>
+          <p class="xm-subtitle">Manage your events and track attendance</p>
+        </div>
+        <button class="btn btn-success xm-create" id="btnCreateEvent">
+          <i class="fas fa-plus"></i> Create Event
+        </button>
+      </section>
+
+      <!-- FILTER BAR -->
+      <section class="xm-card xm-filterbar">
+        <div class="xm-input">
+          <i class="fas fa-search"></i>
+          <input id="eventsSearch" type="text" placeholder="Search events..." />
+        </div>
+
+        <div class="xm-select">
+          <i class="fas fa-filter"></i>
+          <select id="statusFilter">
+            <option value="ALL">All Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="PENDING">Pending Approval</option>
+            <option value="DRAFT">Draft</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- TABLE -->
+      <section class="xm-card xm-tablewrap">
+        <div class="xm-table-head">
+          <div class="xm-table-title">All Events</div>
+          <div class="xm-table-meta" id="eventsCount">0 events</div>
+        </div>
+
+        <div class="xm-table-responsive">
+          <table class="table xm-table">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Date</th>
+                <th>Participants</th>
+                <th>Est. Price</th>
+                <th>Status</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTbody">
+              <tr>
+                <td colspan="6">
+                  <div class="xm-loading"><i class="fas fa-spinner fa-spin"></i> Loading events...</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ACTION MENU (one global) -->
+  <div class="xm-actions-menu" id="actionsMenu" aria-hidden="true">
+    <button class="xm-am-item" data-action="view"><i class="fas fa-eye"></i> View</button>
+    <button class="xm-am-item" data-action="participants"><i class="fas fa-users"></i> Participants</button>
+    <button class="xm-am-item" data-action="attendance"><i class="fas fa-check-circle"></i> Attendance</button>
+    <button class="xm-am-item danger" data-action="delete"><i class="fas fa-trash"></i> Delete</button>
+  </div>
+
+  <script src="/events.js"></script>
+</body>
+</html>
